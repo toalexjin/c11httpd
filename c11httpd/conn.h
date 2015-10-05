@@ -1,5 +1,5 @@
 /**
- * Connection.
+ * TCP connection.
  *
  * Copyright (c) 2015 Alex Jin (toalexjin@hotmail.com)
  */
