@@ -1,5 +1,5 @@
 /**
- * TCP listener.
+ * TCP acceptor.
  *
  * Copyright (c) 2015 Alex Jin (toalexjin@hotmail.com)
  */
@@ -17,12 +17,16 @@
 namespace c11httpd {
 
 /**
- * TCP listener.
+ * TCP acceptor.
  */
-class listener_t {
+class acceptor_t {
 public:
-	listener_t() = default;
-	virtual ~listener_t();
+	acceptor_t() {
+		this->m_backlog = 10;
+		this->m_max_events = 64;
+	}
+
+	virtual ~acceptor_t();
 	void destroy();
 
 	err_t bind(uint16_t port);
@@ -31,17 +35,22 @@ public:
 	err_t bind_ipv6(const char* ip, uint16_t port);
 	err_t bind(std::initializer_list<std::pair<std::string, uint16_t>> list);
 
+	err_t accept();
+
 private:
-	listener_t(const listener_t&) = delete;
-	listener_t(listener_t&&) = delete;
-	listener_t& operator=(const listener_t&) = delete;
-	listener_t& operator=(listener_t&&) = delete;
+	acceptor_t(const acceptor_t&) = delete;
+	acceptor_t(acceptor_t&&) = delete;
+	acceptor_t& operator=(const acceptor_t&) = delete;
+	acceptor_t& operator=(acceptor_t&&) = delete;
 
 private:
 	void resize_i(size_t new_size);
+	static err_t epoll_add_server_i(int epoll, int new_fd);
 
 private:
 	std::vector<int> m_binds;
+	int m_backlog;
+	int m_max_events;
 };
 
 

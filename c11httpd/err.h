@@ -38,7 +38,10 @@ struct err_impl_t {
  */
 class err_t {
 public:
-	explicit err_t(int err = 0) {
+	err_t() : m_impl(0) {
+	}
+
+	err_t(int err) {
 		this->m_impl = err == 0 ? 0 : create_i(err);
 	}
 
