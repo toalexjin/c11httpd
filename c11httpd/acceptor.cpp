@@ -5,40 +5,41 @@
  */
 
 #include "c11httpd/acceptor.h"
+#include "c11httpd/fd.h"
+#include "c11httpd/socket.h"
 #include <cstring>
-#include <unistd.h>
 #include <sys/epoll.h>
 
 
 namespace c11httpd {
 
 acceptor_t::~acceptor_t() {
-	this->destroy();
+	this->close();
 }
 
-void acceptor_t::destroy() {
-	this->resize_bind_i(0);
+void acceptor_t::close() {
+	this->m_listens.clear();
 }
 
 err_t acceptor_t::bind(uint16_t port) {
-	return this->bind(0, port);
+	return this->bind(std::string(), port);
 }
 
-err_t acceptor_t::bind(const char* ip, uint16_t port) {
+err_t acceptor_t::bind(const std::string& ip, uint16_t port) {
 	err_t ret;
 
-	if (ip == 0 || *ip == 0) {
-		ret = this->bind_ipv4(0, port);
+	if (ip.empty()) {
+		ret = this->bind_ipv4(ip, port);
 		if (!ret) {
 			return ret;
 		}
 
-		ret = this->bind_ipv6(0, port);
+		ret = this->bind_ipv6(ip, port);
 		if (!ret) {
-			this->resize_bind_i(this->m_binds.size() - 1);
+			this->m_listens.resize(this->m_listens.size() - 1);
 		}
 	} else {
-		if (std::strchr(ip, ':') == 0) {
+		if (ip.find(':') == std::string::npos) {
 			ret = this->bind_ipv4(ip, port);
 		} else {
 			ret = this->bind_ipv6(ip, port);
@@ -48,7 +49,7 @@ err_t acceptor_t::bind(const char* ip, uint16_t port) {
 	return ret;
 }
 
-err_t acceptor_t::bind_ipv4(const char* ip, uint16_t port) {
+err_t acceptor_t::bind_ipv4(const std::string& ip, uint16_t port) {
 	err_t ret;
 	socket_t fd;
 
@@ -67,7 +68,7 @@ err_t acceptor_t::bind_ipv4(const char* ip, uint16_t port) {
 		goto clean;
 	}
 
-	this->m_binds.push_back(fd);
+	this->m_listens.emplace_back(new conn_base_t(fd, ip, port, true, false));
 	ret.set_ok();
 
 clean:
@@ -79,7 +80,7 @@ clean:
 	return ret;
 }
 
-err_t acceptor_t::bind_ipv6(const char* ip, uint16_t port) {
+err_t acceptor_t::bind_ipv6(const std::string& ip, uint16_t port) {
 	err_t ret;
 	socket_t fd;
 
@@ -98,7 +99,7 @@ err_t acceptor_t::bind_ipv6(const char* ip, uint16_t port) {
 		goto clean;
 	}
 
-	this->m_binds.push_back(fd);
+	this->m_listens.emplace_back(new conn_base_t(fd, ip, port, true, true));
 	ret.set_ok();
 
 clean:
@@ -112,13 +113,13 @@ clean:
 
 err_t acceptor_t::bind(std::initializer_list<std::pair<std::string, uint16_t>> list) {
 	err_t ret;
-	const size_t old_size = this->m_binds.size();
+	const size_t old_size = this->m_listens.size();
 
 	for (auto it = list.begin(); it != list.end(); ++it) {
 		ret = this->bind((*it).first.c_str(), (*it).second);
 
 		if (!ret) {
-			this->resize_bind_i(old_size);
+			this->m_listens.resize(old_size);
 		}
 	}
 
@@ -138,8 +139,8 @@ err_t acceptor_t::accept() {
 	}
 
 	// Add listening sockets.
-	for (auto it = this->m_binds.begin(); it != this->m_binds.end(); ++it) {
-		ret = this->epoll_add_bind_i(epoll, (*it));
+	for (auto it = this->m_listens.begin(); it != this->m_listens.end(); ++it) {
+		ret = this->epoll_add_i(epoll, (*it).get());
 		if (!ret) {
 			goto clean;
 		}
@@ -175,25 +176,16 @@ clean:
 	return ret;
 }
 
-void acceptor_t::resize_bind_i(size_t new_size) {
-	assert(new_size <= this->m_binds.size());
-
-	for (auto i = new_size; i < this->m_binds.size(); ++i) {
-		this->m_binds[i].close();
-	}
-	this->m_binds.resize(new_size);
-}
-
-err_t acceptor_t::epoll_add_bind_i(fd_t& epoll, socket_t& new_fd) {
+err_t acceptor_t::epoll_add_i(fd_t epoll, conn_base_t* new_conn) {
 	assert(epoll.is_opened());
-	assert(new_fd.is_opened());
+	assert(new_conn != 0);
 
 	struct epoll_event event;
 
-	event.data.fd = new_fd.get();
+	event.data.ptr = new_conn;
 	event.events = EPOLLIN | EPOLLET;
 
-	return epoll_ctl(epoll.get(), EPOLL_CTL_ADD, new_fd.get(), &event);
+	return epoll_ctl(epoll.get(), EPOLL_CTL_ADD, new_conn->get_socket().get(), &event);
 }
 
 

@@ -49,6 +49,9 @@ public:
 		return this->m_handle;
 	}
 
+	// fd_t::set() is often used along with Linux system APIs,
+	// so it's very important to keep "errno" no change
+	// after this function returns.
 	fd_t& set(int handle) {
 		this->m_handle = handle;
 		return *this;

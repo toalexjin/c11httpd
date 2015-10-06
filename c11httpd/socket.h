@@ -43,19 +43,22 @@ public:
 		return this->set(handle);
 	}
 
+	// socket_t::set() is often used along with Linux system APIs,
+	// so it's very important to keep "errno" no change
+	// after this function returns.
 	socket_t& set(int handle) {
 		fd_t::set(handle);
 		return *this;
 	}
 
-	err_t set_nonblock();
-
 	err_t new_ipv4_nonblock();
 	err_t new_ipv6_nonblock();
 
-	err_t bind_ipv4(const char* ip, uint16_t port);
-	err_t bind_ipv6(const char* ip, uint16_t port);
+	err_t bind_ipv4(const std::string& ip, uint16_t port);
+	err_t bind_ipv6(const std::string& ip, uint16_t port);
+
 	err_t listen(int backlog);
+	err_t set_nonblock();
 };
 
 } // namespace c11httpd.

@@ -7,12 +7,13 @@
 #pragma once
 
 #include "c11httpd/pre__.h"
+#include "c11httpd/conn_base.h"
 #include "c11httpd/err.h"
-#include "c11httpd/socket.h"
-#include <string>
-#include <vector>
 #include <initializer_list>
+#include <memory>
+#include <string>
 #include <utility>
+#include <vector>
 
 
 namespace c11httpd {
@@ -28,28 +29,26 @@ public:
 	}
 
 	virtual ~acceptor_t();
-	void destroy();
+	virtual void close();
 
 	err_t bind(uint16_t port);
-	err_t bind(const char* ip, uint16_t port);
-	err_t bind_ipv4(const char* ip, uint16_t port);
-	err_t bind_ipv6(const char* ip, uint16_t port);
+	err_t bind(const std::string& ip, uint16_t port);
+	err_t bind_ipv4(const std::string& ip, uint16_t port);
+	err_t bind_ipv6(const std::string& ip, uint16_t port);
 	err_t bind(std::initializer_list<std::pair<std::string, uint16_t>> list);
 
 	err_t accept();
 
 private:
+	// Remove copy constructor, and operator=().
 	acceptor_t(const acceptor_t&) = delete;
-	acceptor_t(acceptor_t&&) = delete;
 	acceptor_t& operator=(const acceptor_t&) = delete;
-	acceptor_t& operator=(acceptor_t&&) = delete;
 
 private:
-	void resize_bind_i(size_t new_size);
-	static err_t epoll_add_bind_i(fd_t& epoll, socket_t& new_fd);
+	static err_t epoll_add_i(fd_t epoll, conn_base_t* new_conn);
 
 private:
-	std::vector<socket_t> m_binds;
+	std::vector<std::unique_ptr<conn_base_t>> m_listens;
 	int m_backlog;
 	int m_max_events;
 };
