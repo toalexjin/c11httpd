@@ -142,6 +142,22 @@ public:
 		return this->set(err_t::current());
 	}
 
+	bool operator==(const err_t& another) const {
+		return this->get() == another.get();
+	}
+
+	bool operator!=(const err_t& another) const {
+		return this->get() != another.get();
+	}
+
+	bool operator==(int another) const {
+		return this->get() == another;
+	}
+
+	bool operator!=(int another) const {
+		return this->get() != another;
+	}
+
 	static int current();
 
 private:

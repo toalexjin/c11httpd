@@ -28,6 +28,8 @@ public:
 	virtual ~conn_t();
 	virtual void close();
 
+	err_t recv(size_t* new_data_size);
+
 private:
 	// Remove default constructor, copy constructor and operator=().
 	conn_t() = delete;

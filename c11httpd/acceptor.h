@@ -37,7 +37,7 @@ public:
 	err_t bind_ipv6(const std::string& ip, uint16_t port);
 	err_t bind(std::initializer_list<std::pair<std::string, uint16_t>> list);
 
-	err_t accept();
+	err_t run();
 
 private:
 	// Remove copy constructor, and operator=().
@@ -45,7 +45,8 @@ private:
 	acceptor_t& operator=(const acceptor_t&) = delete;
 
 private:
-	static err_t epoll_add_i(fd_t epoll, conn_base_t* new_conn);
+	static err_t epoll_add_i(fd_t epoll, conn_base_t* conn);
+	static err_t epoll_del_i(fd_t epoll, conn_base_t* conn);
 
 private:
 	std::vector<std::unique_ptr<conn_base_t>> m_listens;

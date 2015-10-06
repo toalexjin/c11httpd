@@ -57,6 +57,7 @@ public:
 	err_t bind_ipv4(const std::string& ip, uint16_t port);
 	err_t bind_ipv6(const std::string& ip, uint16_t port);
 
+	err_t accept(socket_t* sd, std::string* ip, uint16_t* port, bool* ipv6);
 	err_t listen(int backlog);
 	err_t set_nonblock();
 };

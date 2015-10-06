@@ -21,6 +21,16 @@ void conn_t::close() {
 	this->m_send.clear();
 }
 
+err_t conn_t::recv(size_t* new_data_size) {
+	err_t ret;
+
+	assert(new_data_size != 0);
+
+	*new_data_size = 0;
+
+	return ret;
+}
+
 
 } // namespace c11httpd.
 
