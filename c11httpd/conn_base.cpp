@@ -15,7 +15,7 @@ conn_base_t::~conn_base_t() {
 }
 
 void conn_base_t::close() {
-	this->m_fd.close();
+	this->m_sd.close();
 }
 
 

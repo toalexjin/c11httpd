@@ -19,19 +19,19 @@ namespace c11httpd {
  */
 class conn_base_t {
 public:
-	conn_base_t(socket_t fd, const std::string& ip, uint16_t port, bool listening, bool ipv6)
-		: m_fd(fd), m_ip(ip), m_port(port), m_listening(listening), m_ipv6(ipv6) {
+	conn_base_t(socket_t sd, const std::string& ip, uint16_t port, bool listening, bool ipv6)
+		: m_ip(ip), m_sd(sd), m_port(port), m_listening(listening), m_ipv6(ipv6) {
 	}
 
 	virtual ~conn_base_t();
 	virtual void close();
 
 	socket_t get_socket() const {
-		return this->m_fd;
+		return this->m_sd;
 	}
 
-	void set_socket(socket_t fd) {
-		this->m_fd = fd;
+	void set_socket(socket_t sd) {
+		this->m_sd = sd;
 	}
 
 	const std::string& get_ip() const {
@@ -69,8 +69,8 @@ private:
 	conn_base_t& operator=(const conn_base_t&) = delete;
 
 private:
-	socket_t m_fd;
 	std::string m_ip;
+	socket_t m_sd;
 	uint16_t m_port;
 	const bool m_listening;
 	bool m_ipv6;

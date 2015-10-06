@@ -21,8 +21,8 @@ namespace c11httpd {
  */
 class conn_t : public conn_base_t {
 public:
-	conn_t(const socket_t& fd, const std::string& ip, uint16_t port, bool ipv6)
-		: conn_base_t(fd, ip, port, false, ipv6) {
+	conn_t(const socket_t& sd, const std::string& ip, uint16_t port, bool ipv6)
+		: conn_base_t(sd, ip, port, false, ipv6) {
 	}
 
 	virtual ~conn_t();

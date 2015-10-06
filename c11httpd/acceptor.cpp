@@ -51,30 +51,30 @@ err_t acceptor_t::bind(const std::string& ip, uint16_t port) {
 
 err_t acceptor_t::bind_ipv4(const std::string& ip, uint16_t port) {
 	err_t ret;
-	socket_t fd;
+	socket_t sd;
 
-	ret = fd.new_ipv4_nonblock();
+	ret = sd.new_ipv4_nonblock();
 	if (!ret) {
 		goto clean;
 	}
 
-	ret = fd.bind_ipv4(ip, port);
+	ret = sd.bind_ipv4(ip, port);
 	if (!ret) {
 		goto clean;
 	}
 
-	ret = fd.listen(this->m_backlog);
+	ret = sd.listen(this->m_backlog);
 	if (!ret) {
 		goto clean;
 	}
 
-	this->m_listens.emplace_back(new conn_base_t(fd, ip, port, true, false));
+	this->m_listens.emplace_back(new conn_base_t(sd, ip, port, true, false));
 	ret.set_ok();
 
 clean:
 
 	if (!ret) {
-		fd.close();
+		sd.close();
 	}
 
 	return ret;
@@ -82,30 +82,30 @@ clean:
 
 err_t acceptor_t::bind_ipv6(const std::string& ip, uint16_t port) {
 	err_t ret;
-	socket_t fd;
+	socket_t sd;
 
-	ret = fd.new_ipv6_nonblock();
+	ret = sd.new_ipv6_nonblock();
 	if (!ret) {
 		goto clean;
 	}
 
-	ret = fd.bind_ipv6(ip, port);
+	ret = sd.bind_ipv6(ip, port);
 	if (!ret) {
 		goto clean;
 	}
 
-	ret = fd.listen(this->m_backlog);
+	ret = sd.listen(this->m_backlog);
 	if (!ret) {
 		goto clean;
 	}
 
-	this->m_listens.emplace_back(new conn_base_t(fd, ip, port, true, true));
+	this->m_listens.emplace_back(new conn_base_t(sd, ip, port, true, true));
 	ret.set_ok();
 
 clean:
 
 	if (!ret) {
-		fd.close();
+		sd.close();
 	}
 
 	return ret;
