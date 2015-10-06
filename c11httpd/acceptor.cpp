@@ -7,12 +7,7 @@
 #include "c11httpd/acceptor.h"
 #include <cstring>
 #include <unistd.h>
-#include <fcntl.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
 #include <sys/epoll.h>
-#include <cerrno>
 
 
 namespace c11httpd {
@@ -22,7 +17,7 @@ acceptor_t::~acceptor_t() {
 }
 
 void acceptor_t::destroy() {
-	this->resize_i(0);
+	this->resize_bind_i(0);
 }
 
 err_t acceptor_t::bind(uint16_t port) {
@@ -40,7 +35,7 @@ err_t acceptor_t::bind(const char* ip, uint16_t port) {
 
 		ret = this->bind_ipv6(0, port);
 		if (!ret) {
-			this->resize_i(this->m_binds.size() - 1);
+			this->resize_bind_i(this->m_binds.size() - 1);
 		}
 	} else {
 		if (std::strchr(ip, ':') == 0) {
@@ -55,41 +50,20 @@ err_t acceptor_t::bind(const char* ip, uint16_t port) {
 
 err_t acceptor_t::bind_ipv4(const char* ip, uint16_t port) {
 	err_t ret;
-	int fd = -1;
-	struct sockaddr_in address;
+	socket_t fd;
 
-	// Create address structure.
-	bzero(&address, sizeof(address));
-	address.sin_family = AF_INET;
-	address.sin_port = htons(port);
-
-	if (ip != 0 && *ip != 0) {
-		const int result = inet_pton(AF_INET, ip, &address.sin_addr);
-		if (result != 1) {
-			if (result == 0) {
-				ret.set(EINVAL);
-			} else {
-				ret.set_current();
-			}
-
-			goto clean;
-		}
-	}
-
-	// Create socket.
-	fd = ::socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
-	if (fd == -1) {
-		ret.set_current();
+	ret = fd.new_ipv4_nonblock();
+	if (!ret) {
 		goto clean;
 	}
 
-	if (::bind(fd, (struct sockaddr*) &address, sizeof(address)) != 0) {
-		ret.set_current();
+	ret = fd.bind_ipv4(ip, port);
+	if (!ret) {
 		goto clean;
 	}
 
-	if (::listen(fd, this->m_backlog) != 0) {
-		ret.set_current();
+	ret = fd.listen(this->m_backlog);
+	if (!ret) {
 		goto clean;
 	}
 
@@ -99,9 +73,7 @@ err_t acceptor_t::bind_ipv4(const char* ip, uint16_t port) {
 clean:
 
 	if (!ret) {
-		if (fd != -1) {
-			close(fd);
-		}
+		fd.close();
 	}
 
 	return ret;
@@ -109,41 +81,20 @@ clean:
 
 err_t acceptor_t::bind_ipv6(const char* ip, uint16_t port) {
 	err_t ret;
-	int fd = -1;
-	struct sockaddr_in6 address;
+	socket_t fd;
 
-	// Create address structure.
-	bzero(&address, sizeof(address));
-	address.sin6_family = AF_INET6;
-	address.sin6_port = htons(port);
-
-	if (ip != 0 && *ip != 0) {
-		const int result = inet_pton(AF_INET6, ip, &address.sin6_addr);
-		if (result != 1) {
-			if (result == 0) {
-				ret.set(EINVAL);
-			} else {
-				ret.set_current();
-			}
-
-			goto clean;
-		}
-	}
-
-	// Create socket.
-	fd = ::socket(AF_INET6, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
-	if (fd == -1) {
-		ret.set_current();
+	ret = fd.new_ipv6_nonblock();
+	if (!ret) {
 		goto clean;
 	}
 
-	if (::bind(fd, (struct sockaddr*) &address, sizeof(address)) != 0) {
-		ret.set_current();
+	ret = fd.bind_ipv6(ip, port);
+	if (!ret) {
 		goto clean;
 	}
 
-	if (::listen(fd, this->m_backlog) != 0) {
-		ret.set_current();
+	ret = fd.listen(this->m_backlog);
+	if (!ret) {
 		goto clean;
 	}
 
@@ -153,9 +104,7 @@ err_t acceptor_t::bind_ipv6(const char* ip, uint16_t port) {
 clean:
 
 	if (!ret) {
-		if (fd != -1) {
-			close(fd);
-		}
+		fd.close();
 	}
 
 	return ret;
@@ -169,7 +118,7 @@ err_t acceptor_t::bind(std::initializer_list<std::pair<std::string, uint16_t>> l
 		ret = this->bind((*it).first.c_str(), (*it).second);
 
 		if (!ret) {
-			this->resize_i(old_size);
+			this->resize_bind_i(old_size);
 		}
 	}
 
@@ -190,7 +139,7 @@ err_t acceptor_t::accept() {
 
 	// Add listening sockets.
 	for (auto it = this->m_binds.cbegin(); it != this->m_binds.cend(); ++it) {
-		ret = this->epoll_add_server_i(epoll, *it);
+		ret = this->epoll_add_bind_i(epoll, (*it).get());
 		if (!ret) {
 			goto clean;
 		}
@@ -198,7 +147,7 @@ err_t acceptor_t::accept() {
 
 	while (true) {
 		const int wait_result = epoll_wait(epoll, events, this->m_max_events, -1);
-		if (wait_result == -1 && errno != EINTR) {
+		if (wait_result == -1 && err_t::current() != EINTR) {
 			ret.set_current();
 			goto clean;
 		}
@@ -213,7 +162,7 @@ err_t acceptor_t::accept() {
 clean:
 
 	if (epoll != -1) {
-		close(epoll);
+		::close(epoll);
 		epoll = -1;
 	}
 
@@ -223,16 +172,16 @@ clean:
 	return ret;
 }
 
-void acceptor_t::resize_i(size_t new_size) {
+void acceptor_t::resize_bind_i(size_t new_size) {
 	assert(new_size <= this->m_binds.size());
 
 	for (auto i = new_size; i < this->m_binds.size(); ++i) {
-		close(this->m_binds[i]);
+		this->m_binds[i].close();
 	}
 	this->m_binds.resize(new_size);
 }
 
-err_t acceptor_t::epoll_add_server_i(int epoll, int new_fd) {
+err_t acceptor_t::epoll_add_bind_i(int epoll, int new_fd) {
 	struct epoll_event event;
 
 	event.data.fd = new_fd;

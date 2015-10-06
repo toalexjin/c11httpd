@@ -8,6 +8,7 @@
 
 #include "c11httpd/pre__.h"
 #include "c11httpd/err.h"
+#include "c11httpd/socket.h"
 #include <string>
 #include <vector>
 #include <initializer_list>
@@ -44,11 +45,11 @@ private:
 	acceptor_t& operator=(acceptor_t&&) = delete;
 
 private:
-	void resize_i(size_t new_size);
-	static err_t epoll_add_server_i(int epoll, int new_fd);
+	void resize_bind_i(size_t new_size);
+	static err_t epoll_add_bind_i(int epoll, int new_fd);
 
 private:
-	std::vector<int> m_binds;
+	std::vector<socket_t> m_binds;
 	int m_backlog;
 	int m_max_events;
 };

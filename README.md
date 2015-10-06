@@ -5,7 +5,7 @@ A lightweight httpd library in C++ C11.
 ## Build Requirements
 
 - The library supports Linux only because it uses some advanced Linux features.
-- **Linux kernel x86_64 2.6** (or above).
+- **Linux kernel x86_64 2.6.27** (or above).
 - **g++ 4.8** (or above).
 
 ## Build
