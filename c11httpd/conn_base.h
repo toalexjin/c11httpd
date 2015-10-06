@@ -54,10 +54,6 @@ public:
 		return this->m_listening;
 	}
 
-	void set_listening(bool listening) {
-		this->m_listening = listening;
-	}
-
 	bool is_ipv6() const {
 		return this->m_ipv6;
 	}
@@ -76,7 +72,7 @@ private:
 	socket_t m_fd;
 	std::string m_ip;
 	uint16_t m_port;
-	bool m_listening;
+	const bool m_listening;
 	bool m_ipv6;
 };
 
