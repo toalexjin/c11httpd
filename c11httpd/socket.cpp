@@ -16,27 +16,13 @@
 namespace c11httpd {
 
 
-err_t socket_t::close() {
-	err_t ret;
-
-	if (!this->is_closed()) {
-		if (::close(this->m_fd) == 0) {
-			this->m_fd = -1;
-		} else {
-			ret.set_current();
-		}
-	}
-
-	return ret;
-}
-
 err_t socket_t::set_nonblock() {
 	err_t ret;
 
 	assert(!this->is_closed());
 
-	const auto old = ::fcntl(this->m_fd, F_GETFL);
-	if (fcntl(this->m_fd, F_SETFL, old | O_NONBLOCK) != 0) {
+	const auto old = fcntl(this->get(), F_GETFL);
+	if (fcntl(this->get(), F_SETFL, old | O_NONBLOCK) != 0) {
 		ret.set_current();
 	}
 
@@ -44,8 +30,8 @@ err_t socket_t::set_nonblock() {
 }
 
 err_t socket_t::new_ipv4_nonblock() {
-	this->m_fd = ::socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
-	if (this->m_fd == -1) {
+	this->set(socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0));
+	if (this->get() == -1) {
 		return err_t::current();
 	}
 
@@ -53,8 +39,8 @@ err_t socket_t::new_ipv4_nonblock() {
 }
 
 err_t socket_t::new_ipv6_nonblock() {
-	this->m_fd = ::socket(AF_INET6, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
-	if (this->m_fd == -1) {
+	this->set(socket(AF_INET6, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0));
+	if (this->get() == -1) {
 		return err_t::current();
 	}
 
@@ -81,7 +67,7 @@ err_t socket_t::bind_ipv4(const char* ip, uint16_t port) {
 		}
 	}
 
-	if (bind(this->m_fd, (struct sockaddr*) &address, sizeof(address)) != 0) {
+	if (bind(this->get(), (struct sockaddr*) &address, sizeof(address)) != 0) {
 		return err_t::current();
 	}
 
@@ -108,7 +94,7 @@ err_t socket_t::bind_ipv6(const char* ip, uint16_t port) {
 		}
 	}
 
-	if (bind(this->m_fd, (struct sockaddr*) &address, sizeof(address)) != 0) {
+	if (bind(this->get(), (struct sockaddr*) &address, sizeof(address)) != 0) {
 		return err_t::current();
 	}
 
@@ -118,7 +104,7 @@ err_t socket_t::bind_ipv6(const char* ip, uint16_t port) {
 err_t socket_t::listen(int backlog) {
 	assert(!this->is_closed());
 
-	if (::listen(this->m_fd, backlog) != 0) {
+	if (::listen(this->get(), backlog) != 0) {
 		return err_t::current();
 	}
 

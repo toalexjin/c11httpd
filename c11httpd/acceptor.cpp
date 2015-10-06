@@ -127,29 +127,36 @@ err_t acceptor_t::bind(std::initializer_list<std::pair<std::string, uint16_t>> l
 
 err_t acceptor_t::accept() {
 	err_t ret;
-	int epoll = -1;
+	fd_t epoll;
 	struct epoll_event* events = new struct epoll_event[this->m_max_events];
 
 	// Create epoll handle.
 	epoll = epoll_create1(EPOLL_CLOEXEC);
-	if (epoll == -1) {
+	if (epoll.is_closed()) {
 		ret.set_current();
 		goto clean;
 	}
 
 	// Add listening sockets.
-	for (auto it = this->m_binds.cbegin(); it != this->m_binds.cend(); ++it) {
-		ret = this->epoll_add_bind_i(epoll, (*it).get());
+	for (auto it = this->m_binds.begin(); it != this->m_binds.end(); ++it) {
+		ret = this->epoll_add_bind_i(epoll, (*it));
 		if (!ret) {
 			goto clean;
 		}
 	}
 
 	while (true) {
-		const int wait_result = epoll_wait(epoll, events, this->m_max_events, -1);
-		if (wait_result == -1 && err_t::current() != EINTR) {
-			ret.set_current();
-			goto clean;
+		const int wait_result = epoll_wait(epoll.get(), events, this->m_max_events, -1);
+
+		if (wait_result == -1) {
+			const auto e = err_t::current();
+
+			if (e == EINTR) {
+				continue;
+			} else {
+				ret.set(e);
+				goto clean;
+			}
 		}
 
 		for (int i = 0; i < wait_result; ++i) {
@@ -161,14 +168,10 @@ err_t acceptor_t::accept() {
 
 clean:
 
-	if (epoll != -1) {
-		::close(epoll);
-		epoll = -1;
-	}
-
 	delete[] events;
 	events = 0;
 
+	epoll.close();
 	return ret;
 }
 
@@ -181,13 +184,16 @@ void acceptor_t::resize_bind_i(size_t new_size) {
 	this->m_binds.resize(new_size);
 }
 
-err_t acceptor_t::epoll_add_bind_i(int epoll, int new_fd) {
+err_t acceptor_t::epoll_add_bind_i(fd_t& epoll, socket_t& new_fd) {
+	assert(epoll.is_opened());
+	assert(new_fd.is_opened());
+
 	struct epoll_event event;
 
-	event.data.fd = new_fd;
+	event.data.fd = new_fd.get();
 	event.events = EPOLLIN | EPOLLET;
 
-	return epoll_ctl(epoll, EPOLL_CTL_ADD, new_fd, &event);
+	return epoll_ctl(epoll.get(), EPOLL_CTL_ADD, new_fd.get(), &event);
 }
 
 

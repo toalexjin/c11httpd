@@ -46,7 +46,7 @@ private:
 
 private:
 	void resize_bind_i(size_t new_size);
-	static err_t epoll_add_bind_i(int epoll, int new_fd);
+	static err_t epoll_add_bind_i(fd_t& epoll, socket_t& new_fd);
 
 private:
 	std::vector<socket_t> m_binds;
