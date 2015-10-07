@@ -7,8 +7,6 @@
 #pragma once
 
 #include "c11httpd/pre__.h"
-#include <cstring>
-#include <new>
 
 namespace c11httpd {
 
@@ -26,15 +24,7 @@ public:
 		this->m_size = 0;
 	}
 
-	~buf_t() {
-		if (this->m_buf != 0) {
-			::operator delete((void*) m_buf);
-			this->m_buf = 0;
-		}
-
-		this->m_capacity = 0;
-		this->m_size = 0;
-	}
+	~buf_t();
 
 	size_t capacity() const {
 		return this->m_capacity;
@@ -56,24 +46,10 @@ public:
 		return this->m_buf + this->m_size;
 	}
 
-	void* pending(size_t pending_size) {
-		if (this->m_capacity - this->m_size < pending_size) {
-			size_t new_capacity = this->m_capacity * 2;
+	void* pending(size_t pending_size);
 
-			if (new_capacity - this->m_size < pending_size) {
-				new_capacity = this->m_size + pending_size;
-			}
-
-			auto new_buf = (uint8_t*)::operator new(new_capacity);
-			std::memcpy(new_buf, this->m_buf, this->m_size);
-
-			::operator delete((void*) this->m_buf);
-			this->m_buf = new_buf;
-			this->m_capacity = new_capacity;
-		}
-
-		return this->m_buf + this->m_size;
-	}
+	void erase_front(size_t removed_size);
+	void erase_back(size_t removed_size);
 
 	/**
 	 * Clear content.
