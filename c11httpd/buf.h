@@ -34,6 +34,12 @@ public:
 		return this->m_size;
 	}
 
+	void size(size_t new_size) {
+		assert(new_size <= this->m_capacity);
+
+		this->m_size = new_size;
+	}
+
 	size_t free_size() const {
 		return this->m_capacity - this->m_size;
 	}

@@ -42,14 +42,16 @@ void* buf_t::back(size_t free_size) {
 }
 
 void buf_t::erase_front(size_t erased_size) {
-	assert(erased_size < this->m_size);
+	assert(erased_size <= this->m_size);
 
-	std::memmove(this->m_buf, this->m_buf + erased_size, this->m_size - erased_size);
 	this->m_size -= erased_size;
+	if (this->m_size > 0) {
+		std::memmove(this->m_buf, this->m_buf + erased_size, this->m_size);
+	}
 }
 
 void buf_t::erase_back(size_t erased_size) {
-	assert(erased_size < this->m_size);
+	assert(erased_size <= this->m_size);
 
 	this->m_size -= erased_size;
 }
