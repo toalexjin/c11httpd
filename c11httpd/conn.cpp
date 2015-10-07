@@ -21,12 +21,31 @@ void conn_t::close() {
 	this->m_send.clear();
 }
 
-err_t conn_t::recv(size_t* new_data_size) {
+err_t conn_t::recv(size_t* new_recv_size, bool* peer_closed) {
 	err_t ret;
+	size_t ok_bytes;
 
-	assert(new_data_size != 0);
+	assert(new_recv_size != 0);
+	assert(peer_closed != 0);
 
-	*new_data_size = 0;
+	*new_recv_size = 0;
+	*peer_closed = false;
+
+	while (1) {
+		m_recv.pending(1024);
+
+		ret = this->sock().recv(m_recv.pending(), m_recv.pending_size(), &ok_bytes);
+		if (!ret) {
+			break;
+		}
+
+		if (ok_bytes == 0) {
+			*peer_closed = true;
+			break;
+		}
+
+		*new_recv_size += ok_bytes;
+	}
 
 	return ret;
 }

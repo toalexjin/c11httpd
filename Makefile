@@ -1,4 +1,6 @@
-CPPFLAGS=-Wall -DNDEBUG -O3 -I. -std=c++11
+CPPFLAGS_DEBUG=-Wall -I. -std=c++11 -g
+CPPFLAGS_RELEASE=-Wall -I. -std=c++11 -DNDEBUG -O3
+CPPFLAGS=$(CPPFLAGS_DEBUG)
 LDFLAGS=-Wall
 
 HTTPD_NAME=exe/c11httpd

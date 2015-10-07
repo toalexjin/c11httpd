@@ -26,39 +26,39 @@ public:
 	virtual ~conn_base_t();
 	virtual void close();
 
-	socket_t get_socket() const {
+	socket_t sock() const {
 		return this->m_sd;
 	}
 
-	void set_socket(socket_t sd) {
+	void sock(socket_t sd) {
 		this->m_sd = sd;
 	}
 
-	const std::string& get_ip() const {
+	const std::string& ip() const {
 		return this->m_ip;
 	}
 
-	void set_ip(const std::string& ip) {
+	void ip(const std::string& ip) {
 		this->m_ip = ip;
 	}
 
-	uint16_t get_port() const {
+	uint16_t port() const {
 		return this->m_port;
 	}
 
-	void set_port(uint16_t port) {
+	void port(uint16_t port) {
 		this->m_port = port;
 	}
 
-	bool is_listening() const {
+	bool listening() const {
 		return this->m_listening;
 	}
 
-	bool is_ipv6() const {
+	bool ipv6() const {
 		return this->m_ipv6;
 	}
 
-	void set_ipv6(bool ipv6) {
+	void ipv6(bool ipv6) {
 		this->m_ipv6 = ipv6;
 	}
 

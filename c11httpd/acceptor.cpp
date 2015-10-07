@@ -7,6 +7,7 @@
 #include "c11httpd/acceptor.h"
 #include "c11httpd/conn.h"
 #include "c11httpd/fd.h"
+#include "c11httpd/link.h"
 #include "c11httpd/socket.h"
 #include <cstring>
 #include <cerrno>
@@ -130,17 +131,20 @@ err_t acceptor_t::bind(std::initializer_list<std::pair<std::string, uint16_t>> l
 
 err_t acceptor_t::run() {
 	err_t ret;
+	link_t<conn_t> used_list;
+	link_t<conn_t> free_list;
+	int used_count = 0;
+	int free_count = 0;
 	fd_t epoll;
 	struct epoll_event* events = new struct epoll_event[this->m_max_events];
 	socket_t new_sd;
 	std::string new_ip;
 	uint16_t new_port;
 	bool new_ipv6;
-	size_t new_data_size;
 
 	// Create epoll handle.
 	epoll = epoll_create1(EPOLL_CLOEXEC);
-	if (!epoll.is_opened()) {
+	if (!epoll.opened()) {
 		ret.set_current();
 		goto clean;
 	}
@@ -170,10 +174,12 @@ err_t acceptor_t::run() {
 		for (int i = 0; i < wait_result; ++i) {
 			auto base = (conn_base_t*) events[i].data.ptr;
 
-			if (base->is_listening()) {
+			if (base->listening()) {
 				// New connections are coming.
 				while (true) {
-					ret = base->get_socket().accept(&new_sd, &new_ip, &new_port, &new_ipv6);
+					conn_t* new_conn;
+
+					ret = base->sock().accept(&new_sd, &new_ip, &new_port, &new_ipv6);
 					if (!ret) {
 						if (ret == EAGAIN || ret == EWOULDBLOCK) {
 							break;
@@ -182,27 +188,76 @@ err_t acceptor_t::run() {
 						}
 					}
 
-					// Add the new connection to epoll.
-					auto new_conn = new conn_t(new_sd, new_ip, new_port, new_ipv6);
-					this->epoll_add_i(epoll, new_conn);
-				}
+					// Set non-block flag.
+					ret = new_sd.nonblock(true);
+					if (!ret) {
+						new_sd.close();
+						continue;
+					}
 
+					if (free_count > 0) {
+						// Pop an free conn object from free list.
+						--free_count;
+						new_conn = free_list.pop_front()->get();
+						new_conn->sock(new_sd);
+						new_conn->ip(new_ip);
+						new_conn->port(new_port);
+						new_conn->ipv6(new_ipv6);
+					} else {
+						// Create a new conn object.
+						new_conn = new conn_t(new_sd, new_ip, new_port, new_ipv6);
+					}
+
+					// Add it to epoll monitoring list.
+					ret = this->epoll_add_i(epoll, new_conn);
+					if (!ret) {
+						// If failed to add the new conn to epoll,
+						// then close the conn & add to free list.
+						this->add_free_conn_i(&free_list, &free_count, new_conn);
+						new_conn = 0;
+						continue;
+					}
+
+					// Add it to used list.
+					used_list.push_back(new_conn->link_node());
+					++ used_count;
+				}
 			} else {
-				// New data arrived.
 				auto conn = (conn_t*) base;
-				ret = conn->recv(&new_data_size);
+				bool gc = false;
 
-				// An error happened.
-				if (!ret) {
-					this->epoll_del_i(epoll, conn);
-					delete conn;
-					continue;
-				}
+				do {
+					if (events[i].events & EPOLLIN) {
+						size_t new_recv_size;
+						bool peer_closed;
 
-				// Client side closed connection.
-				if (new_data_size == 0) {
-					this->epoll_del_i(epoll, conn);
-					delete conn;
+						// New data is ready to read.
+						ret = conn->recv(&new_recv_size, &peer_closed);
+						if (!ret) {
+							gc = true;
+							break;
+						}
+
+						// Client side has closed connection.
+						if (peer_closed) {
+							gc = true;
+							break;
+						}
+					}
+				} while (0);
+
+				// An error happened or client side closed connection,
+				// we need to garbage collect the conn.
+				if (gc) {
+					if (this->epoll_del_i(epoll, conn).ok()) {
+						// Remove it from used list.
+						conn->link_node()->unlink();
+						-- used_count;
+
+						// Add it to free list.
+						this->add_free_conn_i(&free_list, &free_count, conn);
+						conn = 0;
+					}
 				}
 			}
 		}
@@ -216,11 +271,15 @@ clean:
 	events = 0;
 
 	epoll.close();
+
+	used_list.clear();
+	free_list.clear();
+
 	return ret;
 }
 
 err_t acceptor_t::epoll_add_i(fd_t epoll, conn_base_t* conn) {
-	assert(epoll.is_opened());
+	assert(epoll.opened());
 	assert(conn != 0);
 
 	struct epoll_event event;
@@ -228,14 +287,27 @@ err_t acceptor_t::epoll_add_i(fd_t epoll, conn_base_t* conn) {
 	event.data.ptr = conn;
 	event.events = EPOLLIN | EPOLLET;
 
-	return epoll_ctl(epoll.get(), EPOLL_CTL_ADD, conn->get_socket().get(), &event);
+	return epoll_ctl(epoll.get(), EPOLL_CTL_ADD, conn->sock().get(), &event);
 }
 
 err_t acceptor_t::epoll_del_i(fd_t epoll, conn_base_t* conn) {
-	assert(epoll.is_opened());
+	assert(epoll.opened());
 	assert(conn != 0);
 
-	return epoll_ctl(epoll.get(), EPOLL_CTL_DEL, conn->get_socket().get(), 0);
+	return epoll_ctl(epoll.get(), EPOLL_CTL_DEL, conn->sock().get(), 0);
+}
+
+void acceptor_t::add_free_conn_i(link_t<conn_t>* free_list, int* free_count, conn_t* conn) {
+	assert(!conn->link_node()->linked());
+
+	conn->close();
+
+	if (*free_count < this->m_max_free_conn) {
+		free_list->push_front(conn->link_node());
+		++ *free_count;
+	} else {
+		delete conn;
+	}
 }
 
 

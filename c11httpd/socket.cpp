@@ -35,7 +35,7 @@ err_t socket_t::new_ipv6_nonblock() {
 }
 
 err_t socket_t::bind_ipv4(const std::string& ip, uint16_t port) {
-	assert(!this->is_closed());
+	assert(this->opened());
 
 	struct sockaddr_in address;
 
@@ -62,7 +62,7 @@ err_t socket_t::bind_ipv4(const std::string& ip, uint16_t port) {
 }
 
 err_t socket_t::bind_ipv6(const std::string& ip, uint16_t port) {
-	assert(!this->is_closed());
+	assert(this->opened());
 
 	struct sockaddr_in6 address;
 
@@ -93,7 +93,7 @@ err_t socket_t::accept(socket_t* sd, std::string* ip, uint16_t* port, bool* ipv6
 	socklen_t len = sizeof(addr);
 	char buf[INET6_ADDRSTRLEN + 1];
 
-	assert(this->is_opened());
+	assert(this->opened());
 	assert(sd != 0);
 	assert(ip != 0);
 	assert(port != 0);
@@ -141,7 +141,7 @@ err_t socket_t::accept(socket_t* sd, std::string* ip, uint16_t* port, bool* ipv6
 }
 
 err_t socket_t::listen(int backlog) {
-	assert(!this->is_closed());
+	assert(this->opened());
 
 	if (::listen(this->get(), backlog) != 0) {
 		return err_t::current();
@@ -150,13 +150,52 @@ err_t socket_t::listen(int backlog) {
 	return err_t();
 }
 
-err_t socket_t::set_nonblock() {
+err_t socket_t::send(const void* buf, size_t size, size_t* ok_bytes) {
+	assert(this->opened());
+	assert(buf != 0 || size == 0);
+	assert(ok_bytes != 0);
+
+	const auto result = ::send(this->get(), buf, size, 0);
+	if (result == -1) {
+		*ok_bytes = 0;
+		return err_t::current();
+	} else {
+		*ok_bytes = result;
+		return err_t();
+	}
+}
+
+err_t socket_t::recv(void* buf, size_t size, size_t* ok_bytes) {
+	assert(this->opened());
+	assert(buf != 0 || size == 0);
+	assert(ok_bytes != 0);
+
+	const auto result = ::recv(this->get(), buf, size, 0);
+	if (result == -1) {
+		*ok_bytes = 0;
+		return err_t::current();
+	} else {
+		*ok_bytes = result;
+		return err_t();
+	}
+}
+
+bool socket_t::nonblock() const {
+	assert(this->opened());
+
+	const int value = fcntl(this->get(), F_GETFL);
+	return (value & O_NONBLOCK) != 0;
+}
+
+err_t socket_t::nonblock(bool flag) {
 	err_t ret;
 
-	assert(!this->is_closed());
+	assert(this->opened());
 
-	const auto old = fcntl(this->get(), F_GETFL);
-	if (fcntl(this->get(), F_SETFL, old | O_NONBLOCK) != 0) {
+	const int old = fcntl(this->get(), F_GETFL);
+	const int updated = flag ? (old | O_NONBLOCK) : (old & (~O_NONBLOCK));
+
+	if (old != updated && fcntl(this->get(), F_SETFL, updated) != 0) {
 		ret.set_current();
 	}
 

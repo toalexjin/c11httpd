@@ -7,8 +7,10 @@
 #pragma once
 
 #include "c11httpd/pre__.h"
+#include "c11httpd/conn.h"
 #include "c11httpd/conn_base.h"
 #include "c11httpd/err.h"
+#include "c11httpd/link.h"
 #include <initializer_list>
 #include <memory>
 #include <string>
@@ -25,7 +27,8 @@ class acceptor_t {
 public:
 	acceptor_t() {
 		this->m_backlog = 10;
-		this->m_max_events = 64;
+		this->m_max_events = 256;
+		this->m_max_free_conn = 128;
 	}
 
 	virtual ~acceptor_t();
@@ -45,13 +48,15 @@ private:
 	acceptor_t& operator=(const acceptor_t&) = delete;
 
 private:
-	static err_t epoll_add_i(fd_t epoll, conn_base_t* conn);
-	static err_t epoll_del_i(fd_t epoll, conn_base_t* conn);
+	err_t epoll_add_i(fd_t epoll, conn_base_t* conn);
+	err_t epoll_del_i(fd_t epoll, conn_base_t* conn);
+	void add_free_conn_i(link_t<conn_t>* free_list, int* free_count, conn_t* conn);
 
 private:
 	std::vector<std::unique_ptr<conn_base_t>> m_listens;
 	int m_backlog;
 	int m_max_events;
+	int m_max_free_conn;
 };
 
 

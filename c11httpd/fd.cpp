@@ -14,9 +14,9 @@ namespace c11httpd {
 err_t fd_t::close() {
 	err_t ret;
 
-	if (!this->is_closed()) {
-		if (::close(this->m_handle) == 0) {
-			this->m_handle = -1;
+	if (!this->closed()) {
+		if (::close(this->m_fd) == 0) {
+			this->m_fd = -1;
 		} else {
 			ret.set_current();
 		}

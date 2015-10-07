@@ -12,5 +12,6 @@
 #include "c11httpd/conn_base.h"
 #include "c11httpd/err.h"
 #include "c11httpd/fd.h"
+#include "c11httpd/link.h"
 #include "c11httpd/socket.h"
 

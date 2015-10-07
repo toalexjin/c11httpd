@@ -21,10 +21,10 @@ namespace c11httpd {
  */
 class fd_t {
 public:
-	fd_t() : m_handle(-1) {
+	fd_t() : m_fd(-1) {
 	}
 
-	fd_t(int handle) : m_handle(handle) {
+	fd_t(int fd) : m_fd(fd) {
 	}
 
 	// We do not close file handle in destructor!!
@@ -33,34 +33,34 @@ public:
 	fd_t(const fd_t&) = default;
 	fd_t& operator=(const fd_t&) = default;
 
-	fd_t& operator=(int handle) {
-		return this->set(handle);
+	fd_t& operator=(int fd) {
+		return this->set(fd);
 	}
 
-	bool is_opened() const {
-		return this->m_handle >= 0;
+	bool opened() const {
+		return this->m_fd >= 0;
 	}
 
-	bool is_closed() const {
-		return !this->is_opened();
+	bool closed() const {
+		return !this->opened();
 	}
 
 	int get() const {
-		return this->m_handle;
+		return this->m_fd;
 	}
 
 	// fd_t::set() is often used along with Linux system APIs,
 	// so it's very important to keep "errno" no change
 	// after this function returns.
-	fd_t& set(int handle) {
-		this->m_handle = handle;
+	fd_t& set(int fd) {
+		this->m_fd = fd;
 		return *this;
 	}
 
 	err_t close();
 
 private:
-	int m_handle;
+	int m_fd;
 };
 
 } // namespace c11httpd.
