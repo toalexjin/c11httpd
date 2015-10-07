@@ -22,12 +22,12 @@ buf_t::~buf_t() {
 	this->m_size = 0;
 }
 
-void* buf_t::pending(size_t pending_size) {
-	if (this->m_capacity - this->m_size < pending_size) {
+void* buf_t::back(size_t free_size) {
+	if (this->m_capacity - this->m_size < free_size) {
 		size_t new_capacity = this->m_capacity * 2;
 
-		if (new_capacity - this->m_size < pending_size) {
-			new_capacity = this->m_size + pending_size;
+		if (new_capacity - this->m_size < free_size) {
+			new_capacity = this->m_size + free_size;
 		}
 
 		auto new_buf = (uint8_t*)::operator new(new_capacity);
@@ -41,17 +41,17 @@ void* buf_t::pending(size_t pending_size) {
 	return this->m_buf + this->m_size;
 }
 
-void buf_t::erase_front(size_t removed_size) {
-	assert(removed_size < this->m_size);
+void buf_t::erase_front(size_t erased_size) {
+	assert(erased_size < this->m_size);
 
-	std::memmove(this->m_buf, this->m_buf + removed_size, this->m_size - removed_size);
-	this->m_size -= removed_size;
+	std::memmove(this->m_buf, this->m_buf + erased_size, this->m_size - erased_size);
+	this->m_size -= erased_size;
 }
 
-void buf_t::erase_back(size_t removed_size) {
-	assert(removed_size < this->m_size);
+void buf_t::erase_back(size_t erased_size) {
+	assert(erased_size < this->m_size);
 
-	this->m_size -= removed_size;
+	this->m_size -= erased_size;
 }
 
 

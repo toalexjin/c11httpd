@@ -34,22 +34,22 @@ public:
 		return this->m_size;
 	}
 
-	size_t pending_size() const {
+	size_t free_size() const {
 		return this->m_capacity - this->m_size;
 	}
 
-	void* get() const {
+	void* front() const {
 		return this->m_buf;
 	}
 
-	void* pending() const {
+	void* back() const {
 		return this->m_buf + this->m_size;
 	}
 
-	void* pending(size_t pending_size);
+	void* back(size_t free_size);
 
-	void erase_front(size_t removed_size);
-	void erase_back(size_t removed_size);
+	void erase_front(size_t erased_size);
+	void erase_back(size_t erased_size);
 
 	/**
 	 * Clear content.

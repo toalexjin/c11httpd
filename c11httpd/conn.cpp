@@ -32,9 +32,9 @@ err_t conn_t::recv(size_t* new_recv_size, bool* peer_closed) {
 	*peer_closed = false;
 
 	while (1) {
-		m_recv.pending(1024);
+		m_recv.back(1024);
 
-		ret = this->sock().recv(m_recv.pending(), m_recv.pending_size(), &ok_bytes);
+		ret = this->sock().recv(m_recv.back(), m_recv.free_size(), &ok_bytes);
 		if (!ret) {
 			break;
 		}

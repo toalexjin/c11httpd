@@ -7,7 +7,6 @@
 #pragma once
 
 #include "c11httpd/pre__.h"
-#include <cstddef>
 
 namespace c11httpd {
 
@@ -49,7 +48,7 @@ public:
 			auto old = ptr;
 			ptr = ptr->m_next;
 
-			delete old;
+			delete old->get();
 		}
 
 		this->m_prev = this;
