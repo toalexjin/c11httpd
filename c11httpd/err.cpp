@@ -6,10 +6,19 @@
 
 #include "c11httpd/err.h"
 #include <cerrno>
+#include <cstring>
 
 
 namespace c11httpd {
 
+
+std::string err_t::message() const {
+	char buf[1024];
+
+	char* ptr = strerror_r(this->code(), buf, sizeof(buf) - 1);
+	buf[sizeof(buf) - 1] = 0;
+	return ptr;
+}
 
 int err_t::current() {
 	return errno;

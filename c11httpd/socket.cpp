@@ -64,6 +64,13 @@ err_t socket_t::bind_ipv4(const std::string& ip, uint16_t port) {
 err_t socket_t::bind_ipv6(const std::string& ip, uint16_t port) {
 	assert(this->opened());
 
+	// Make IPV6 accept IPV6 connections only.
+	// Otherwise, listening to the same port would fail.
+	int on = 1;
+	if (setsockopt(this->get(), IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on)) == -1) {
+		return err_t::current();
+	}
+
 	struct sockaddr_in6 address;
 
 	bzero(&address, sizeof(address));

@@ -4,23 +4,25 @@ CPPFLAGS=$(CPPFLAGS_DEBUG)
 LDFLAGS=-Wall
 
 HTTPD_NAME=exe/c11httpd
-SOURCE_FILES=$(wildcard c11httpd/*.cpp server/*.cpp)
+C11HTTPD_HEAD_FILES=$(wildcard c11httpd/*.h)
+DAEMON_HEAD_FILES=$(wildcard main/*.h)
+SOURCE_FILES=$(wildcard c11httpd/*.cpp daemon/*.cpp)
 OBJECT_FILES=$(patsubst %.cpp,obj/%.o,$(SOURCE_FILES))
 
 
 c11httpd: dirs $(OBJECT_FILES)
 	g++ $(LDFLAGS) -o $(HTTPD_NAME) $(OBJECT_FILES)
 
-obj/c11httpd/%.o: c11httpd/%.cpp
+obj/c11httpd/%.o: c11httpd/%.cpp $(C11HTTPD_HEAD_FILES)
 	g++ $(CPPFLAGS) -c $< -o $@
 
-obj/server/%.o: server/%.cpp
+obj/daemon/%.o: daemon/%.cpp $(C11HTTPD_HEAD_FILES) $(DAEMON_HEAD_FILES)
 	g++ $(CPPFLAGS) -c $< -o $@
 
 dirs:
 	mkdir -p exe
 	mkdir -p obj/c11httpd
-	mkdir -p obj/server
+	mkdir -p obj/daemon
 
 clean:
 	rm -rf exe obj

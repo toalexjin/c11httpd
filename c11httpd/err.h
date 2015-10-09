@@ -8,6 +8,7 @@
 
 #include "c11httpd/pre__.h"
 #include <string>
+#include <iostream>
 
 
 namespace c11httpd {
@@ -79,7 +80,7 @@ public:
 			return *this;
 		}
 
-		this->set(another.get());
+		this->set(another.code());
 		return *this;
 	}
 
@@ -110,12 +111,14 @@ public:
 		return this->failed();
 	}
 
-	int get() const {
+	int code() const {
 		return this->m_impl == 0 ? 0 : this->m_impl->m_err;
 	}
 
+	std::string message() const;
+
 	err_t& set(int err) {
-		if (this->get() == err) {
+		if (this->code() == err) {
 			return *this;
 		}
 
@@ -143,19 +146,19 @@ public:
 	}
 
 	bool operator==(const err_t& another) const {
-		return this->get() == another.get();
+		return this->code() == another.code();
 	}
 
 	bool operator!=(const err_t& another) const {
-		return this->get() != another.get();
+		return this->code() != another.code();
 	}
 
 	bool operator==(int another) const {
-		return this->get() == another;
+		return this->code() == another;
 	}
 
 	bool operator!=(int another) const {
-		return this->get() != another;
+		return this->code() != another;
 	}
 
 	static int current();
@@ -166,6 +169,14 @@ private:
 private:
 	details__::err_impl_t* m_impl;
 };
+
+
+template <typename Char, typename Traits>
+inline std::basic_ostream<Char, Traits>& operator<<(
+		std::basic_ostream<Char, Traits>& ostream, const err_t& e) {
+	ostream << e.message() << " (" << e.code() << ")";
+	return ostream;
+}
 
 
 } // namespace c11httpd.

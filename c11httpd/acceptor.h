@@ -40,6 +40,7 @@ public:
 	err_t bind_ipv6(const std::string& ip, uint16_t port);
 	err_t bind(std::initializer_list<std::pair<std::string, uint16_t>> list);
 
+	std::vector<std::pair<std::string, uint16_t>> binds() const;
 	err_t run();
 
 private:
@@ -57,6 +58,10 @@ private:
 	int m_backlog;
 	int m_max_events;
 	int m_max_free_conn;
+
+private:
+	static const std::string st_ipv4_all;
+	static const std::string st_ipv6_all;
 };
 
 

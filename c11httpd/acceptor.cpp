@@ -16,6 +16,10 @@
 
 namespace c11httpd {
 
+
+const std::string acceptor_t::st_ipv4_all("0.0.0.0");
+const std::string acceptor_t::st_ipv6_all("::");
+
 acceptor_t::~acceptor_t() {
 	this->close();
 }
@@ -55,13 +59,14 @@ err_t acceptor_t::bind(const std::string& ip, uint16_t port) {
 err_t acceptor_t::bind_ipv4(const std::string& ip, uint16_t port) {
 	err_t ret;
 	socket_t sd;
+	const std::string& real_ip = ip.empty() ? st_ipv4_all : ip;
 
 	ret = sd.new_ipv4_nonblock();
 	if (!ret) {
 		goto clean;
 	}
 
-	ret = sd.bind_ipv4(ip, port);
+	ret = sd.bind_ipv4(real_ip, port);
 	if (!ret) {
 		goto clean;
 	}
@@ -71,7 +76,7 @@ err_t acceptor_t::bind_ipv4(const std::string& ip, uint16_t port) {
 		goto clean;
 	}
 
-	this->m_listens.emplace_back(new conn_base_t(sd, ip, port, true, false));
+	this->m_listens.emplace_back(new conn_base_t(sd, real_ip, port, true, false));
 	ret.set_ok();
 
 clean:
@@ -86,13 +91,14 @@ clean:
 err_t acceptor_t::bind_ipv6(const std::string& ip, uint16_t port) {
 	err_t ret;
 	socket_t sd;
+	const std::string& real_ip = ip.empty() ? st_ipv6_all : ip;
 
 	ret = sd.new_ipv6_nonblock();
 	if (!ret) {
 		goto clean;
 	}
 
-	ret = sd.bind_ipv6(ip, port);
+	ret = sd.bind_ipv6(real_ip, port);
 	if (!ret) {
 		goto clean;
 	}
@@ -102,7 +108,7 @@ err_t acceptor_t::bind_ipv6(const std::string& ip, uint16_t port) {
 		goto clean;
 	}
 
-	this->m_listens.emplace_back(new conn_base_t(sd, ip, port, true, true));
+	this->m_listens.emplace_back(new conn_base_t(sd, real_ip, port, true, true));
 	ret.set_ok();
 
 clean:
@@ -123,10 +129,22 @@ err_t acceptor_t::bind(std::initializer_list<std::pair<std::string, uint16_t>> l
 
 		if (!ret) {
 			this->m_listens.resize(old_size);
+			return ret;
 		}
 	}
 
 	return ret;
+}
+
+std::vector<std::pair<std::string, uint16_t>> acceptor_t::binds() const {
+	std::vector<std::pair<std::string, uint16_t>> vt;
+
+	vt.reserve(this->m_listens.size());
+	for (auto it = this->m_listens.cbegin(); it != this->m_listens.cend(); ++it) {
+		vt.push_back(std::pair<std::string, uint16_t>((*it)->ip(), (*it)->port()));
+	}
+
+	return vt;
 }
 
 err_t acceptor_t::run() {
