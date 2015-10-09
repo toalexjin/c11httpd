@@ -17,8 +17,12 @@
 namespace c11httpd {
 
 
-const std::string acceptor_t::st_ipv4_all("0.0.0.0");
-const std::string acceptor_t::st_ipv6_all("::");
+const std::string acceptor_t::ipv4_any("0.0.0.0");
+const std::string acceptor_t::ipv4_loopback("127.0.0.1");
+
+const std::string acceptor_t::ipv6_any("::");
+const std::string acceptor_t::ipv6_loopback("::1");
+
 
 acceptor_t::~acceptor_t() {
 	this->close();
@@ -59,7 +63,7 @@ err_t acceptor_t::bind(const std::string& ip, uint16_t port) {
 err_t acceptor_t::bind_ipv4(const std::string& ip, uint16_t port) {
 	err_t ret;
 	socket_t sd;
-	const std::string& real_ip = ip.empty() ? st_ipv4_all : ip;
+	const std::string& real_ip = ip.empty() ? ipv4_any : ip;
 
 	ret = sd.new_ipv4_nonblock();
 	if (!ret) {
@@ -91,7 +95,7 @@ clean:
 err_t acceptor_t::bind_ipv6(const std::string& ip, uint16_t port) {
 	err_t ret;
 	socket_t sd;
-	const std::string& real_ip = ip.empty() ? st_ipv6_all : ip;
+	const std::string& real_ip = ip.empty() ? ipv6_any : ip;
 
 	ret = sd.new_ipv6_nonblock();
 	if (!ret) {

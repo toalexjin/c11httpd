@@ -25,6 +25,19 @@ namespace c11httpd {
  */
 class acceptor_t {
 public:
+	// "0.0.0.0"
+	static const std::string ipv4_any;
+
+	// "127.0.0.1"
+	static const std::string ipv4_loopback;
+
+	// "::"
+	static const std::string ipv6_any;
+
+	// "::1"
+	static const std::string ipv6_loopback;
+
+public:
 	acceptor_t() {
 		this->m_backlog = 10;
 		this->m_max_events = 256;
@@ -58,10 +71,6 @@ private:
 	int m_backlog;
 	int m_max_events;
 	int m_max_free_conn;
-
-private:
-	static const std::string st_ipv4_all;
-	static const std::string st_ipv6_all;
 };
 
 
