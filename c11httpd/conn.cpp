@@ -16,10 +16,36 @@ conn_t::~conn_t() {
 }
 
 void conn_t::close() {
-	conn_base_t::close();
+	// Clear context but do not free memory
+	// so that the context could be re-used later.
+	if (this->get_ctx() != 0) {
+		this->get_ctx()->clear();
+	}
 
 	this->m_recv.clear();
 	this->m_send.clear();
+
+	conn_base_t::close();
+}
+
+const std::string& conn_t::ip() const {
+	return conn_base_t::ip();
+}
+
+uint16_t conn_t::port() const {
+	return conn_base_t::port();
+}
+
+bool conn_t::ipv6() const {
+	return conn_base_t::ipv6();
+}
+
+buf_t& conn_t::recv_buf() {
+	return this->m_recv;
+}
+
+buf_t& conn_t::send_buf() {
+	return this->m_send;
 }
 
 err_t conn_t::recv(size_t* new_recv_size, bool* peer_closed) {

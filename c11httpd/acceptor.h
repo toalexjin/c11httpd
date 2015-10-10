@@ -9,6 +9,7 @@
 #include "c11httpd/pre__.h"
 #include "c11httpd/conn.h"
 #include "c11httpd/conn_base.h"
+#include "c11httpd/conn_event.h"
 #include "c11httpd/err.h"
 #include "c11httpd/link.h"
 #include <initializer_list>
@@ -76,8 +77,10 @@ public:
 	// Get already-listened ports.
 	std::vector<std::pair<std::string, uint16_t>> binds() const;
 
-	// Run the TCP server service.
-	err_t run();
+	// Run TCP server service.
+	//
+	// "handler" is used to receive & handle client connection events.
+	err_t run(conn_event_t* handler);
 
 private:
 	// Remove copy constructor, and operator=().

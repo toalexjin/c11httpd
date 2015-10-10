@@ -151,7 +151,7 @@ std::vector<std::pair<std::string, uint16_t>> acceptor_t::binds() const {
 	return vt;
 }
 
-err_t acceptor_t::run() {
+err_t acceptor_t::run(conn_event_t* handler) {
 	err_t ret;
 	link_t<conn_t> used_list;
 	link_t<conn_t> free_list;
@@ -163,6 +163,8 @@ err_t acceptor_t::run() {
 	std::string new_ip;
 	uint16_t new_port;
 	bool new_ipv6;
+
+	assert(handler != 0);
 
 	// Create epoll handle.
 	epoll = epoll_create1(EPOLL_CLOEXEC);
@@ -230,6 +232,13 @@ err_t acceptor_t::run() {
 						new_conn = new conn_t(new_sd, new_ip, new_port, new_ipv6);
 					}
 
+					// Trigger "on_connected" event.
+					if (!handler->on_connected(new_conn)) {
+						this->add_free_conn_i(&free_list, &free_count, new_conn);
+						new_conn = 0;
+						continue;
+					}
+
 					// Add it to epoll monitoring list.
 					ret = this->epoll_add_i(epoll, new_conn);
 					if (!ret) {
@@ -243,8 +252,6 @@ err_t acceptor_t::run() {
 					// Add it to used list.
 					used_list.push_back(new_conn->link_node());
 					++ used_count;
-
-					std::cout << *new_conn << " was connected." << std::endl;
 				}
 			} else {
 				auto conn = (conn_t*) base;
@@ -268,33 +275,18 @@ err_t acceptor_t::run() {
 							break;
 						}
 
-						// Print.
-						auto& buf = conn->recv_buf();
-						auto size = buf.size();
-
-						while (size > 0 && buf[size - 1] == '\n') {
-							-- size;
-							if (size > 0 && buf[size - 1] == '\r') {
-								-- size;
-							}
-						}
-
-						if (size > 0) {
-							std::cout << *conn << " -> " << size << ": ";
-							std::cout.write(buf.front(), size);
-							std::cout << std::endl;
-						}
-
-						buf.clear();
+						// Trigger "on_received" event.
+						handler->on_received(conn);
 					}
 				} while (0);
 
 				// An error happened or client side closed connection,
 				// we need to garbage collect the conn.
 				if (gc) {
-					std::cout << *conn << " was closed." << std::endl;
-
 					if (this->epoll_del_i(epoll, conn).ok()) {
+						// Trigger "on_disconnected" event.
+						handler->on_disconnected(conn);
+
 						// Remove it from used list.
 						conn->link_node()->unlink();
 						-- used_count;
@@ -312,13 +304,18 @@ err_t acceptor_t::run() {
 
 clean:
 
+	// Trigger "on_disconnected" event for each existing connection.
+	used_list.for_each([handler](conn_t* c) {
+		handler->on_disconnected(c);
+		delete c;
+	});
+
+	free_list.clear();
+
 	delete[] events;
 	events = 0;
 
 	epoll.close();
-
-	used_list.clear();
-	free_list.clear();
 
 	return ret;
 }

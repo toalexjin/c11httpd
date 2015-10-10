@@ -1,5 +1,5 @@
 /**
- * TCP connection.
+ * Client connection.
  *
  * Copyright (c) 2015 Alex Jin (toalexjin@hotmail.com)
  */
@@ -9,6 +9,7 @@
 #include "c11httpd/pre__.h"
 #include "c11httpd/buf.h"
 #include "c11httpd/conn_base.h"
+#include "c11httpd/conn_session.h"
 #include "c11httpd/link.h"
 #include "c11httpd/socket.h"
 #include <string>
@@ -17,12 +18,12 @@
 namespace c11httpd {
 
 
-// TCP connection.
+// Client connection.
 //
 // For each new client incoming connection, a conn_t object
 // would be created. After the client connection was disconnected,
 // the conn_t object might be re-used by acceptor_t for better performance.
-class conn_t : public conn_base_t {
+class conn_t : public conn_base_t, public conn_session_t {
 public:
 	conn_t(const socket_t& sd, const std::string& ip, uint16_t port, bool ipv6)
 		: conn_base_t(sd, ip, port, false, ipv6),
@@ -38,11 +39,27 @@ public:
 	// put the object to a free conn_t list for re-use.
 	virtual void close();
 
-	err_t recv(size_t* new_recv_size, bool* peer_closed);
-
-	buf_t& recv_buf() {
-		return m_recv;
+	void ip(const std::string& ip) {
+		conn_base_t::ip(ip);
 	}
+
+	void port(uint16_t port) {
+		conn_base_t::port(port);
+	}
+
+	void ipv6(bool ipv6) {
+		conn_base_t::ipv6(ipv6);
+	}
+
+	virtual const std::string& ip() const;
+	virtual uint16_t port() const;
+	virtual bool ipv6() const;
+
+	virtual buf_t& recv_buf();
+	virtual buf_t& send_buf();
+
+	// Receive data.
+	err_t recv(size_t* new_recv_size, bool* peer_closed);
 
 	// Get link node.
 	//

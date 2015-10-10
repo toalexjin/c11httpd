@@ -8,6 +8,41 @@
 #include <iostream>
 
 
+class my_event_handler : public c11httpd::conn_event_t {
+public:
+	virtual bool on_connected(c11httpd::conn_session_t* session);
+	virtual void on_disconnected(c11httpd::conn_session_t* session);
+	virtual void on_received(c11httpd::conn_session_t* session);
+};
+
+bool my_event_handler::on_connected(c11httpd::conn_session_t* session) {
+	std::cout << *session << " was connected." << std::endl;
+	return true;
+}
+
+void my_event_handler::on_disconnected(c11httpd::conn_session_t* session) {
+	std::cout << *session << " was disconnected." << std::endl;
+}
+
+void my_event_handler::on_received(c11httpd::conn_session_t* session) {
+	std::cout << *session << " -> ";
+
+	auto& buf = session->recv_buf();
+	auto size = buf.size();
+
+	while (size > 0 && buf[size - 1] == '\n') {
+		-- size;
+		if (size > 0 && buf[size - 1] == '\r') {
+			-- size;
+		}
+	}
+
+	std::cout.write(buf.front(), size);
+	std::cout << std::endl;
+	buf.clear();
+}
+
+
 int main(int argc, char* argv[]) {
 
 	c11httpd::err_t ret;
@@ -24,7 +59,8 @@ int main(int argc, char* argv[]) {
 		std::cout << "Listen-> " << (*it).first << ":" << (*it).second << std::endl;
 	}
 
-	ret = acceptor.run();
+	my_event_handler handler;
+	ret = acceptor.run(&handler);
 	if (!ret) {
 		std::cout << "acceptor::run() failed. " << ret << std::endl;
 		return 1;

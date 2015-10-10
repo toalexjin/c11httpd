@@ -7,6 +7,7 @@
 #pragma once
 
 #include "c11httpd/pre__.h"
+#include <functional>
 
 namespace c11httpd {
 
@@ -47,8 +48,21 @@ public:
 		while (ptr != this) {
 			auto old = ptr;
 			ptr = ptr->m_next;
-
 			delete old->get();
+		}
+
+		this->m_prev = this;
+		this->m_next = this;
+	}
+
+	// Call a function on each elements.
+	void for_each(const std::function<void(T*)>& f) {
+		auto ptr = this->m_next;
+
+		while (ptr != this) {
+			auto old = ptr;
+			ptr = ptr->m_next;
+			f(old->get());
 		}
 
 		this->m_prev = this;
