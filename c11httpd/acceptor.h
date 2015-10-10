@@ -20,9 +20,14 @@
 
 namespace c11httpd {
 
-/**
- * TCP acceptor.
- */
+
+// TCP acceptor.
+//
+// acceptor_t listens to a pile of specified TCP ports (ipv4 or ipv6),
+// waits for incoming client connections. When a client connected,
+// acceptor_t would create a conn_t object for the new connection.
+// When the connection was disconnected, acceptor_t would put the
+// conn_t object to a free list (for re-use) or destroy it.
 class acceptor_t {
 public:
 	// "0.0.0.0"
@@ -47,13 +52,31 @@ public:
 	virtual ~acceptor_t();
 	virtual void close();
 
+	// Listens to a port for both ipv4 & ipv6.
 	err_t bind(uint16_t port);
+
+	// Listens to a port.
+	//
+	// If "ip" is empty, the this function equals to acceptor_t::bind(port).
 	err_t bind(const std::string& ip, uint16_t port);
+
+	// Listens to an ipv4 port.
+	//
+	// If "ip" is empty, then acceptor_t::ipv4_any would be used.
 	err_t bind_ipv4(const std::string& ip, uint16_t port);
+
+	// Listens to an ipv6 port.
+	//
+	// If "ip" is empty, then acceptor_t::ipv6_any would be used.
 	err_t bind_ipv6(const std::string& ip, uint16_t port);
+
+	// Listens to a list of ports.
 	err_t bind(std::initializer_list<std::pair<std::string, uint16_t>> list);
 
+	// Get already-listened ports.
 	std::vector<std::pair<std::string, uint16_t>> binds() const;
+
+	// Run the TCP server service.
 	err_t run();
 
 private:

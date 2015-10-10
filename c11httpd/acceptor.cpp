@@ -40,12 +40,12 @@ err_t acceptor_t::bind(const std::string& ip, uint16_t port) {
 	err_t ret;
 
 	if (ip.empty()) {
-		ret = this->bind_ipv4(ip, port);
+		ret = this->bind_ipv4(ipv4_any, port);
 		if (!ret) {
 			return ret;
 		}
 
-		ret = this->bind_ipv6(ip, port);
+		ret = this->bind_ipv6(ipv6_any, port);
 		if (!ret) {
 			this->m_listens.resize(this->m_listens.size() - 1);
 		}
@@ -243,6 +243,8 @@ err_t acceptor_t::run() {
 					// Add it to used list.
 					used_list.push_back(new_conn->link_node());
 					++ used_count;
+
+					std::cout << *new_conn << " was connected." << std::endl;
 				}
 			} else {
 				auto conn = (conn_t*) base;
@@ -265,12 +267,33 @@ err_t acceptor_t::run() {
 							gc = true;
 							break;
 						}
+
+						// Print.
+						auto buf = conn->recv_buf();
+						auto size = buf->size();
+
+						while (size > 0 && buf->front()[size - 1] == uint8_t('\n')) {
+							-- size;
+							if (size > 0 && buf->front()[size - 1] == uint8_t('\r')) {
+								-- size;
+							}
+						}
+
+						if (size > 0) {
+							std::cout << *conn << " -> " << size << ": ";
+							std::cout.write((char*) buf->front(), size);
+							std::cout << std::endl;
+						}
+
+						buf->clear();
 					}
 				} while (0);
 
 				// An error happened or client side closed connection,
 				// we need to garbage collect the conn.
 				if (gc) {
+					std::cout << *conn << " was closed." << std::endl;
+
 					if (this->epoll_del_i(epoll, conn).ok()) {
 						// Remove it from used list.
 						conn->link_node()->unlink();

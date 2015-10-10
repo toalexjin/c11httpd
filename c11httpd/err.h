@@ -34,9 +34,7 @@ struct err_impl_t {
 } // namespace details__
 
 
-/**
- * System error.
- */
+// System error.
 class err_t {
 public:
 	err_t() : m_impl(0) {

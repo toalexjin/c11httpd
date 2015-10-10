@@ -11,11 +11,9 @@
 namespace c11httpd {
 
 
-/**
- * Buffer.
- *
- * conn_t uses this buffer object to save send & recv data.
- */
+// Buffer.
+//
+// conn_t uses this buffer object to save send & recv data.
 class buf_t {
 public:
 	buf_t() {
@@ -25,6 +23,14 @@ public:
 	}
 
 	~buf_t();
+
+	// Clear content.
+	//
+	// We do not free memory so that the buffer could be re-used.
+	//
+	void clear() {
+		this->m_size = 0;
+	}
 
 	size_t capacity() const {
 		return this->m_capacity;
@@ -44,11 +50,11 @@ public:
 		return this->m_capacity - this->m_size;
 	}
 
-	void* front() const {
+	uint8_t* front() const {
 		return this->m_buf;
 	}
 
-	void* back() const {
+	uint8_t* back() const {
 		return this->m_buf + this->m_size;
 	}
 
@@ -56,15 +62,6 @@ public:
 
 	void erase_front(size_t erased_size);
 	void erase_back(size_t erased_size);
-
-	/**
-	 * Clear content.
-	 *
-	 * We do not free memory so that it could be re-used.
-	 */
-	void clear() {
-		this->m_size = 0;
-	}
 
 private:
 	buf_t(const buf_t&) = delete;

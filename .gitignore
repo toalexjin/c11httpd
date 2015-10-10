@@ -11,4 +11,7 @@
 a.out
 /obj
 /exe
+.cproject
+.project
+.settings
 

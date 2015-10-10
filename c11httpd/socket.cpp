@@ -54,6 +54,10 @@ err_t socket_t::bind_ipv4(const std::string& ip, uint16_t port) {
 		}
 	}
 
+	if (!this->reuseaddr(true)) {
+		return err_t::current();
+	}
+
 	if (bind(this->get(), (struct sockaddr*) &address, sizeof(address)) != 0) {
 		return err_t::current();
 	}
@@ -86,6 +90,10 @@ err_t socket_t::bind_ipv6(const std::string& ip, uint16_t port) {
 				return err_t::current();
 			}
 		}
+	}
+
+	if (!this->reuseaddr(true)) {
+		return err_t::current();
 	}
 
 	if (bind(this->get(), (struct sockaddr*) &address, sizeof(address)) != 0) {
@@ -195,18 +203,41 @@ bool socket_t::nonblock() const {
 }
 
 err_t socket_t::nonblock(bool flag) {
-	err_t ret;
-
 	assert(this->opened());
 
 	const int old = fcntl(this->get(), F_GETFL);
 	const int updated = flag ? (old | O_NONBLOCK) : (old & (~O_NONBLOCK));
 
 	if (old != updated && fcntl(this->get(), F_SETFL, updated) != 0) {
-		ret.set_current();
+		return err_t::current();
 	}
 
-	return ret;
+	return err_t();
+}
+
+bool socket_t::reuseaddr() const {
+	assert(this->opened());
+
+	int state = 0;
+	socklen_t size = sizeof(state);
+
+	if (getsockopt(this->get(), SOL_SOCKET, SO_REUSEADDR, &state, &size) == -1) {
+		return false;
+	}
+
+	return state == 0 ? false : true;
+}
+
+err_t socket_t::reuseaddr(bool flag) {
+	assert(this->opened());
+
+	const int state = flag ? 1 : 0;
+	if (setsockopt(this->get(), SOL_SOCKET, SO_REUSEADDR,
+			&state, (socklen_t) sizeof(state)) == -1) {
+		return err_t::current();
+	}
+
+	return err_t();
 }
 
 

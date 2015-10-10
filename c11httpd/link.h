@@ -117,7 +117,7 @@ public:
 
 	// Get the object that this node points to.
 	//
-	// The curent node MUST NOT be "head node" (the first node).
+	// The current node MUST NOT be "head node" (the first node).
 	T* get() const {
 		return (T*)(uintptr_t(this) - this->m_offset);
 	}

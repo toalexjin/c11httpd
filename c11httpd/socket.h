@@ -13,13 +13,12 @@
 
 namespace c11httpd {
 
-/**
- * A lightweight socket wrapper class.
- *
- * Note that this object will be saved in STL containers,
- * which might copy objects internally when re-allocating memory.
- * Therefore, this object will not close file handle automatically in destructor.
- */
+
+// A lightweight socket wrapper class.
+//
+// Note that this object will be saved in STL containers,
+// which might copy objects internally when re-allocating memory.
+// Therefore, this object will not close file handle automatically in destructor.
 class socket_t : public fd_t {
 public:
 	socket_t() : fd_t() {
@@ -65,7 +64,11 @@ public:
 
 	bool nonblock() const;
 	err_t nonblock(bool flag);
+
+	bool reuseaddr() const;
+	err_t reuseaddr(bool flag);
 };
+
 
 } // namespace c11httpd.
 

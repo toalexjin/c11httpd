@@ -17,9 +17,11 @@
 namespace c11httpd {
 
 
-/**
- * TCP connection.
- */
+// TCP connection.
+//
+// For each new client incoming connection, a conn_t object
+// would be created. After the client connection was disconnected,
+// the conn_t object might be re-used by acceptor_t for better performance.
 class conn_t : public conn_base_t {
 public:
 	conn_t(const socket_t& sd, const std::string& ip, uint16_t port, bool ipv6)
@@ -29,16 +31,22 @@ public:
 	}
 
 	virtual ~conn_t();
+
+	// Close internal handles, reset internal variables, but do not free memory.
+	//
+	// acceptor_t would call conn_t::close() and then
+	// put the object to a free conn_t list for re-use.
 	virtual void close();
 
 	err_t recv(size_t* new_recv_size, bool* peer_closed);
 
-	/**
-	 * Get link node.
-	 *
-	 * In class acceptor, we save "conn_t" in a doubly linked list,
-	 * this function returns the link node.
-	 */
+	buf_t* recv_buf() {
+		return &m_recv;
+	}
+
+	// Get link node.
+	//
+	// acceptor_t saves conn_t in a doubly linked list.
 	link_t<conn_t>* link_node() {
 		return &this->m_link;
 	}

@@ -9,6 +9,7 @@ DAEMON_HEAD_FILES=$(wildcard main/*.h)
 SOURCE_FILES=$(wildcard c11httpd/*.cpp daemon/*.cpp)
 OBJECT_FILES=$(patsubst %.cpp,obj/%.o,$(SOURCE_FILES))
 
+all: c11httpd
 
 c11httpd: dirs $(OBJECT_FILES)
 	g++ $(LDFLAGS) -o $(HTTPD_NAME) $(OBJECT_FILES)

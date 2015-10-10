@@ -1,6 +1,8 @@
 /**
  * Pre-include header file.
  *
+ * All c11httpd library header files should include this file first.
+ *
  * Copyright (c) 2015 Alex Jin (toalexjin@hotmail.com)
  */
 

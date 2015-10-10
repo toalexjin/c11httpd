@@ -12,13 +12,11 @@
 
 namespace c11httpd {
 
-/**
- * A lightweight file descriptor class.
- *
- * Note that this object will be saved in STL containers,
- * which might copy objects internally when re-allocating memory.
- * Therefore, this object will not close file handle automatically in destructor.
- */
+// A lightweight file descriptor class.
+//
+// Note that this object will be saved in STL containers,
+// which might copy objects internally when re-allocating memory.
+// Therefore, this object will not close file handle automatically in destructor.
 class fd_t {
 public:
 	fd_t() : m_fd(-1) {
