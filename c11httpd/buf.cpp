@@ -22,7 +22,7 @@ buf_t::~buf_t() {
 	this->m_size = 0;
 }
 
-void* buf_t::back(size_t free_size) {
+char* buf_t::back(size_t free_size) {
 	if (this->m_capacity - this->m_size < free_size) {
 		size_t new_capacity = this->m_capacity * 2;
 
@@ -30,7 +30,7 @@ void* buf_t::back(size_t free_size) {
 			new_capacity = this->m_size + free_size;
 		}
 
-		auto new_buf = (uint8_t*)::operator new(new_capacity);
+		auto new_buf = (char*)::operator new(new_capacity);
 		std::memcpy(new_buf, this->m_buf, this->m_size);
 
 		::operator delete((void*) this->m_buf);

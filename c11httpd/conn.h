@@ -40,8 +40,8 @@ public:
 
 	err_t recv(size_t* new_recv_size, bool* peer_closed);
 
-	buf_t* recv_buf() {
-		return &m_recv;
+	buf_t& recv_buf() {
+		return m_recv;
 	}
 
 	// Get link node.

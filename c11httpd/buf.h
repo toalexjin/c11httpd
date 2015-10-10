@@ -49,28 +49,39 @@ public:
 		return this->m_capacity - this->m_size;
 	}
 
-	uint8_t* front() const {
+	char* front() const {
 		return this->m_buf;
 	}
 
-	uint8_t* back() const {
+	char* back() const {
 		return this->m_buf + this->m_size;
 	}
 
-	void* back(size_t free_size);
+	char* back(size_t free_size);
 
 	void erase_front(size_t erased_size);
 	void erase_back(size_t erased_size);
+
+	const char& operator[](size_t index) const {
+		assert(index < this->m_size);
+		return this->m_buf[index];
+	}
+
+	char& operator[](size_t index) {
+		assert(index < this->m_size);
+		return this->m_buf[index];
+	}
 
 private:
 	buf_t(const buf_t&) = delete;
 	buf_t& operator=(const buf_t&) = delete;
 
 private:
-	uint8_t* m_buf;
+	char* m_buf;
 	size_t m_capacity;
 	size_t m_size;
 };
+
 
 } // namespace c11httpd.
 

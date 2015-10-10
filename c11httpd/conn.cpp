@@ -60,6 +60,11 @@ err_t conn_t::recv(size_t* new_recv_size, bool* peer_closed) {
 		}
 	}
 
+	// If there are free space, then add a null-terminal to make debug easier.
+	if (this->m_recv.free_size() > 0) {
+		this->m_recv.back()[0] = 0;
+	}
+
 	return ret;
 }
 

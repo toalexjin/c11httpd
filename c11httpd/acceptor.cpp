@@ -269,23 +269,23 @@ err_t acceptor_t::run() {
 						}
 
 						// Print.
-						auto buf = conn->recv_buf();
-						auto size = buf->size();
+						auto& buf = conn->recv_buf();
+						auto size = buf.size();
 
-						while (size > 0 && buf->front()[size - 1] == uint8_t('\n')) {
+						while (size > 0 && buf[size - 1] == '\n') {
 							-- size;
-							if (size > 0 && buf->front()[size - 1] == uint8_t('\r')) {
+							if (size > 0 && buf[size - 1] == '\r') {
 								-- size;
 							}
 						}
 
 						if (size > 0) {
 							std::cout << *conn << " -> " << size << ": ";
-							std::cout.write((char*) buf->front(), size);
+							std::cout.write(buf.front(), size);
 							std::cout << std::endl;
 						}
 
-						buf->clear();
+						buf.clear();
 					}
 				} while (0);
 
