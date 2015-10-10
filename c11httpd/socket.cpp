@@ -54,8 +54,9 @@ err_t socket_t::bind_ipv4(const std::string& ip, uint16_t port) {
 		}
 	}
 
-	if (!this->reuseaddr(true)) {
-		return err_t::current();
+	auto ret = this->reuseaddr(true);
+	if (!ret) {
+		return ret;
 	}
 
 	if (bind(this->get(), (struct sockaddr*) &address, sizeof(address)) != 0) {
@@ -92,8 +93,9 @@ err_t socket_t::bind_ipv6(const std::string& ip, uint16_t port) {
 		}
 	}
 
-	if (!this->reuseaddr(true)) {
-		return err_t::current();
+	auto ret = this->reuseaddr(true);
+	if (!ret) {
+		return ret;
 	}
 
 	if (bind(this->get(), (struct sockaddr*) &address, sizeof(address)) != 0) {

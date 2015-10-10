@@ -27,7 +27,6 @@ public:
 	// Clear content.
 	//
 	// We do not free memory so that the buffer could be re-used.
-	//
 	void clear() {
 		this->m_size = 0;
 	}
