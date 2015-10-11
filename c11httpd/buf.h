@@ -7,6 +7,8 @@
 #pragma once
 
 #include "c11httpd/pre__.h"
+#include <string>
+
 
 namespace c11httpd {
 
@@ -59,15 +61,27 @@ public:
 
 	char* back(size_t free_size);
 
+	void push_back(const void* data, size_t size);
+	void push_back(const std::string& str);
+	void push_back(const char* str);
+
 	void erase_front(size_t erased_size);
 	void erase_back(size_t erased_size);
 
 	const char& operator[](size_t index) const {
+		return this->at(index);
+	}
+
+	char& operator[](size_t index) {
+		return this->at(index);
+	}
+
+	const char& at(size_t index) const {
 		assert(index < this->m_size);
 		return this->m_buf[index];
 	}
 
-	char& operator[](size_t index) {
+	char& at(size_t index) {
 		assert(index < this->m_size);
 		return this->m_buf[index];
 	}

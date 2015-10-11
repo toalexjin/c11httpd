@@ -12,6 +12,15 @@
 
 namespace c11httpd {
 
+enum {
+	// Close the connection.
+	event_result_disconnect = 1,
+
+	// There are more data to send.
+	//
+	// "on_received" might return this flag.
+	event_result_more_data = (1 << 1)
+};
 
 // Client connection event.
 //
@@ -25,21 +34,28 @@ public:
 
 	// A new connection was established.
 	//
-	// If this function returns false, then the new connection
-	// would be closed by the library immediately and "on_disconnected"
-	// event would NOT be invoked.
-	virtual bool on_connected(conn_session_t* session) = 0;
+	// If event_result_disconnect is returned, then the connection
+	// would be closed and "on_disconnected" event would NOT be triggered.
+	//
+	// @return zero or event_result_disconnect.
+	virtual uint32_t on_connected(conn_session_t* session, buf_t* send_buf);
 
 	// Connection was disconnected.
 	//
 	// For each-success "on_connected" call, there MUST
-	// be a corresponding "on_disconnected" event invoked.
+	// be a corresponding "on_disconnected" event triggered.
 	// This rule is guaranteed by the library.
-	virtual void on_disconnected(conn_session_t* session) = 0;
+	virtual void on_disconnected(conn_session_t* session);
 
 	// New data was received.
-	virtual void on_received(conn_session_t* session) = 0;
+	//
+	// @return A combination value of event_result_???
+	virtual uint32_t on_received(conn_session_t* session,
+			buf_t* recv_buf, buf_t* send_buf);
+
+	// Get more data to send.
+	virtual uint32_t get_more_data(conn_session_t* session, buf_t* send_buf);
 };
 
-}
+} // namespace c11httpd.
 

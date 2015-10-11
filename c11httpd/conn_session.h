@@ -27,8 +27,6 @@ public:
 	virtual const std::string& ip() const = 0;
 	virtual uint16_t port() const = 0;
 	virtual bool ipv6() const = 0;
-	virtual buf_t& recv_buf() = 0;
-	virtual buf_t& send_buf() = 0;
 
 	// Get user context.
 	//

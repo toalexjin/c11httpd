@@ -40,12 +40,12 @@ bool conn_t::ipv6() const {
 	return conn_base_t::ipv6();
 }
 
-buf_t& conn_t::recv_buf() {
-	return this->m_recv;
+buf_t* conn_t::recv_buf() {
+	return &this->m_recv;
 }
 
-buf_t& conn_t::send_buf() {
-	return this->m_send;
+buf_t* conn_t::send_buf() {
+	return &this->m_send;
 }
 
 err_t conn_t::recv(size_t* new_recv_size, bool* peer_closed) {
@@ -89,6 +89,31 @@ err_t conn_t::recv(size_t* new_recv_size, bool* peer_closed) {
 	// If there are free space, then add a null-terminal to make debug easier.
 	if (this->m_recv.free_size() > 0) {
 		this->m_recv.back()[0] = 0;
+	}
+
+	return ret;
+}
+
+err_t conn_t::send(size_t* new_send_size) {
+	err_t ret;
+	size_t ok_bytes;
+
+	assert(new_send_size != 0);
+	*new_send_size = 0;
+
+	while (this->m_send_offset < this->m_send.size()) {
+		ret = this->sock().send(this->m_send.front() + this->m_send_offset,
+				this->m_send.size() - this->m_send_offset, &ok_bytes);
+		if (!ret) {
+			if (*new_send_size > 0 && (ret == EAGAIN || ret == EWOULDBLOCK)) {
+				ret.set_ok();
+			}
+
+			break;
+		}
+
+		*new_send_size += ok_bytes;
+		this->m_send_offset += ok_bytes;
 	}
 
 	return ret;

@@ -175,7 +175,7 @@ err_t acceptor_t::run(conn_event_t* handler) {
 
 	// Add listening sockets.
 	for (auto it = this->m_listens.begin(); it != this->m_listens.end(); ++it) {
-		ret = this->epoll_add_i(epoll, (*it).get());
+		ret = this->epoll_set_i(epoll, (*it).get(), EPOLL_CTL_ADD, EPOLLIN | EPOLLET);
 		if (!ret) {
 			goto clean;
 		}
@@ -199,10 +199,11 @@ err_t acceptor_t::run(conn_event_t* handler) {
 			auto base = (conn_base_t*) events[i].data.ptr;
 
 			if (base->listening()) {
-				// New connections are coming.
 				while (true) {
-					conn_t* new_conn;
+					conn_t* conn;
+					bool gc = false;
 
+					// Accept new connection.
 					ret = base->sock().accept(&new_sd, &new_ip, &new_port, &new_ipv6);
 					if (!ret) {
 						if (ret == EAGAIN || ret == EWOULDBLOCK) {
@@ -222,35 +223,51 @@ err_t acceptor_t::run(conn_event_t* handler) {
 					if (free_count > 0) {
 						// Pop an free conn object from free list.
 						--free_count;
-						new_conn = free_list.pop_front()->get();
-						new_conn->sock(new_sd);
-						new_conn->ip(new_ip);
-						new_conn->port(new_port);
-						new_conn->ipv6(new_ipv6);
+						conn = free_list.pop_front()->get();
+						conn->sock(new_sd);
+						conn->ip(new_ip);
+						conn->port(new_port);
+						conn->ipv6(new_ipv6);
 					} else {
 						// Create a new conn object.
-						new_conn = new conn_t(new_sd, new_ip, new_port, new_ipv6);
+						conn = new conn_t(new_sd, new_ip, new_port, new_ipv6);
 					}
 
-					// Trigger "on_connected" event.
-					if (!handler->on_connected(new_conn)) {
-						this->add_free_conn_i(&free_list, &free_count, new_conn);
-						new_conn = 0;
-						continue;
-					}
+					do {
+						// Trigger "on_connected" event.
+						conn->last_event_result(handler->on_connected(
+								conn, conn->send_buf()));
 
-					// Add it to epoll monitoring list.
-					ret = this->epoll_add_i(epoll, new_conn);
-					if (!ret) {
-						// If failed to add the new conn to epoll,
-						// then close the conn & add to free list.
-						this->add_free_conn_i(&free_list, &free_count, new_conn);
-						new_conn = 0;
+						// If no data to send and disconnect flag is on,
+						// then close connection.
+						if ((conn->last_event_result() & event_result_disconnect) != 0
+								&& conn->send_pending_size() == 0) {
+							gc = true;
+							break;
+						}
+
+						// Add it to epoll list.
+						ret = this->epoll_set_i(epoll, conn, EPOLL_CTL_ADD,
+								conn->send_pending_size() == 0 ?
+								(EPOLLIN | EPOLLET) : (EPOLLOUT | EPOLLET));
+
+						if (!ret) {
+							gc = true;
+							break;
+						}
+					} while (0);
+
+					if (gc) {
+						// Trigger "on_disconnected" event.
+						handler->on_disconnected(conn);
+
+						this->add_free_conn_i(&free_list, &free_count, conn);
+						conn = 0;
 						continue;
 					}
 
 					// Add it to used list.
-					used_list.push_back(new_conn->link_node());
+					used_list.push_back(conn->link_node());
 					++ used_count;
 				}
 			} else {
@@ -276,7 +293,47 @@ err_t acceptor_t::run(conn_event_t* handler) {
 						}
 
 						// Trigger "on_received" event.
-						handler->on_received(conn);
+						conn->last_event_result(handler->on_received(
+								conn, conn->recv_buf(), conn->send_buf()));
+
+						if (conn->send_pending_size() > 0) {
+							this->epoll_set_i(epoll, conn, EPOLL_CTL_MOD, EPOLLOUT | EPOLLET);
+						} else if (conn->last_event_result() & event_result_disconnect) {
+							gc = true;
+							break;
+						}
+					} else if (events[i].events & EPOLLOUT) {
+						size_t new_send_size;
+
+						ret = conn->send(&new_send_size);
+						if (!ret) {
+							gc = true;
+							break;
+						}
+
+						// Some data are still pending.
+						if (conn->send_pending_size() > 0) {
+							break;
+						}
+
+						if (conn->last_event_result() & event_result_more_data) {
+							// Get more data to send.
+							conn->last_event_result(handler->get_more_data(conn, conn->send_buf()));
+							if (conn->send_pending_size() > 0) {
+								break;
+							}
+						}
+
+						// All data has been sent, reset send buffer.
+						conn->send_clear();
+
+						if (conn->last_event_result() & event_result_disconnect) {
+							gc = true;
+							break;
+						}
+
+						// All data has been sent, switch to receive data mode.
+						this->epoll_set_i(epoll, conn, EPOLL_CTL_MOD, EPOLLIN | EPOLLET);
 					}
 				} while (0);
 
@@ -320,16 +377,16 @@ clean:
 	return ret;
 }
 
-err_t acceptor_t::epoll_add_i(fd_t epoll, conn_base_t* conn) {
+err_t acceptor_t::epoll_set_i(fd_t epoll, conn_base_t* conn, int op, uint32_t events) {
 	assert(epoll.opened());
 	assert(conn != 0);
 
 	struct epoll_event event;
 
 	event.data.ptr = conn;
-	event.events = EPOLLIN | EPOLLET;
+	event.events = events;
 
-	return epoll_ctl(epoll.get(), EPOLL_CTL_ADD, conn->sock().get(), &event);
+	return epoll_ctl(epoll.get(), op, conn->sock().get(), &event);
 }
 
 err_t acceptor_t::epoll_del_i(fd_t epoll, conn_base_t* conn) {

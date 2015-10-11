@@ -28,7 +28,10 @@ public:
 	conn_t(const socket_t& sd, const std::string& ip, uint16_t port, bool ipv6)
 		: conn_base_t(sd, ip, port, false, ipv6),
 		m_link(uintptr_t(&this->m_link) - uintptr_t(this)) {
-			assert(this == this->m_link.get());
+
+		assert(this == this->m_link.get());
+		this->m_send_offset = 0;
+		this->m_last_event_result = 0;
 	}
 
 	virtual ~conn_t();
@@ -55,11 +58,31 @@ public:
 	virtual uint16_t port() const;
 	virtual bool ipv6() const;
 
-	virtual buf_t& recv_buf();
-	virtual buf_t& send_buf();
+	size_t send_pending_size() const {
+		return this->m_send.size() - this->m_send_offset;
+	}
+
+	void send_clear() {
+		this->m_send_offset = 0;
+		this->m_send.clear();
+	}
+
+	uint32_t last_event_result() const {
+		return this->m_last_event_result;
+	}
+
+	void last_event_result(uint32_t value) {
+		this->m_last_event_result = value;
+	}
+
+	buf_t* recv_buf();
+	buf_t* send_buf();
 
 	// Receive data.
 	err_t recv(size_t* new_recv_size, bool* peer_closed);
+
+	// Send data.
+	err_t send(size_t* new_send_size);
 
 	// Get link node.
 	//
@@ -78,6 +101,8 @@ private:
 	link_t<conn_t> m_link;
 	buf_t m_recv;
 	buf_t m_send;
+	size_t m_send_offset;
+	uint32_t m_last_event_result;
 };
 
 
