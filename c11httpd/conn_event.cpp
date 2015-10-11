@@ -12,6 +12,7 @@ namespace c11httpd {
 
 uint32_t conn_event_t::on_connected(conn_session_t* session, buf_t* send_buf) {
 	assert(session != 0);
+	assert(send_buf != 0);
 
 	(void) &session;
 	(void) &send_buf;
@@ -27,6 +28,8 @@ void conn_event_t::on_disconnected(conn_session_t* session) {
 uint32_t conn_event_t::on_received(conn_session_t* session,
 	buf_t* recv_buf, buf_t* send_buf) {
 	assert(session != 0);
+	assert(recv_buf != 0);
+	assert(send_buf != 0);
 
 	(void) &session;
 	(void) &send_buf;
@@ -37,6 +40,7 @@ uint32_t conn_event_t::on_received(conn_session_t* session,
 
 uint32_t conn_event_t::get_more_data(conn_session_t* session, buf_t* send_buf) {
 	assert(session != 0);
+	assert(send_buf != 0);
 
 	(void) &session;
 	(void) &send_buf;

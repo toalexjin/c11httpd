@@ -24,6 +24,8 @@ void conn_t::close() {
 
 	this->m_recv.clear();
 	this->m_send.clear();
+	this->m_send_offset = 0;
+	this->m_last_event_result = 0;
 
 	conn_base_t::close();
 }
