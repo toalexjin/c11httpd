@@ -32,10 +32,6 @@ void conn_t::close() {
 	this->m_last_event_result = 0;
 }
 
-int conn_t::fd() const {
-	return this->m_sd.get();
-}
-
 const std::string& conn_t::ip() const {
 	return this->m_ip;
 }

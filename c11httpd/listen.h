@@ -27,9 +27,6 @@ public:
 	virtual ~listen_t();
 	virtual void close();
 
-	// Get file descriptor of the socket.
-	virtual int fd() const;
-
 	socket_t sock() const {
 		return this->m_sd;
 	}

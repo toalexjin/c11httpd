@@ -8,6 +8,7 @@
 #include <iostream>
 #include <cstring>
 #include <string>
+#include <signal.h>
 
 
 class my_context_t : public c11httpd::conn_ctx_t {
@@ -192,6 +193,8 @@ int main(int argc, char* argv[]) {
 		return 1;
 	}
 
+	acceptor.stop_signals({SIGTERM, SIGINT});
+
 	const auto binds(acceptor.binds());
 	for (auto it = binds.cbegin(); it != binds.cend(); ++it) {
 		std::cout << "Listen-> " << (*it).first << ":" << (*it).second << std::endl;
@@ -203,6 +206,8 @@ int main(int argc, char* argv[]) {
 		std::cout << "acceptor::run() failed. " << ret << std::endl;
 		return 1;
 	}
+
+	std::cout << "TCP Service exited gracefully." << std::endl;
 
 	return 0;
 }

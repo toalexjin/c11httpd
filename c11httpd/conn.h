@@ -43,9 +43,6 @@ public:
 	// put the object to a free conn_t list for re-use.
 	virtual void close();
 
-	// Get file descriptor of the socket.
-	virtual int fd() const;
-
 	socket_t sock() const {
 		return this->m_sd;
 	}

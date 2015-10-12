@@ -18,10 +18,5 @@ void listen_t::close() {
 	this->m_sd.close();
 }
 
-int listen_t::fd() const {
-	return this->m_sd.get();
-}
-
 } // namespace c11httpd.
-
 

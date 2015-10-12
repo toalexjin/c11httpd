@@ -8,10 +8,14 @@
 #include "c11httpd/conn.h"
 #include "c11httpd/fd.h"
 #include "c11httpd/link.h"
+#include "c11httpd/signal_manager.h"
 #include "c11httpd/socket.h"
 #include <cstring>
 #include <cerrno>
 #include <sys/epoll.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <signal.h>
 
 
 namespace c11httpd {
@@ -23,6 +27,15 @@ const std::string acceptor_t::ipv4_loopback("127.0.0.1");
 const std::string acceptor_t::ipv6_any("::");
 const std::string acceptor_t::ipv6_loopback("::1");
 
+
+acceptor_t::acceptor_t() : waitable_t(waitable_t::type_acceptor_stop) {
+	this->m_backlog = 10;
+	this->m_max_events = 256;
+	this->m_max_free_conn = 128;
+
+	// Ignore SIGPIPE.
+	signal_manager_t::instance()->ignore(SIGPIPE);
+}
 
 acceptor_t::~acceptor_t() {
 	this->close();
@@ -158,11 +171,12 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 	int used_count = 0;
 	int free_count = 0;
 	fd_t epoll;
-	struct epoll_event* events = new struct epoll_event[this->m_max_events];
+	struct epoll_event* events = 0;
 	socket_t new_sd;
 	std::string new_ip;
 	uint16_t new_port;
 	bool new_ipv6;
+	bool signal_registered = false;
 
 	assert(handler != 0);
 
@@ -173,14 +187,32 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 		goto clean;
 	}
 
+	// Create a pair of sockets for stopping the service.
+	ret = this->create_stop_sock_i();
+	if (!ret) {
+		goto clean;
+	}
+
+	ret = this->epoll_set_i(epoll, this->m_stop_sock[0], this, EPOLL_CTL_ADD, EPOLLIN | EPOLLET);
+	if (!ret) {
+		goto clean;
+	}
+
 	// Add listening sockets.
 	for (auto it = this->m_listens.begin(); it != this->m_listens.end(); ++it) {
-		ret = this->epoll_set_i(epoll, (*it).get(), EPOLL_CTL_ADD, EPOLLIN | EPOLLET);
+		ret = this->epoll_set_i(epoll, (*it).get()->sock(), (*it).get(), EPOLL_CTL_ADD, EPOLLIN | EPOLLET);
 		if (!ret) {
 			goto clean;
 		}
 	}
 
+	// Receive Linux signal events.
+	if (!this->m_stop_signals.empty()) {
+		signal_manager_t::instance()->add(this->m_stop_signals, this);
+		signal_registered = true;
+	}
+
+	events = new struct epoll_event[this->m_max_events];
 	while (true) {
 		const int wait_result = epoll_wait(epoll.get(), events, this->m_max_events, -1);
 
@@ -198,7 +230,19 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 		for (int i = 0; i < wait_result; ++i) {
 			auto waitable = (waitable_t*) events[i].data.ptr;
 
-			if (waitable->wait_type() == waitable_t::type_listen) {
+			if (waitable->wait_type() == waitable_t::type_acceptor_stop) {
+				char buf[256];
+				size_t ok_bytes;
+
+				while (true) {
+					if (!this->m_stop_sock[0].recv(buf, sizeof(buf), &ok_bytes)) {
+						break;
+					}
+				}
+
+				ret.set_ok();
+				goto clean;
+			} else if (waitable->wait_type() == waitable_t::type_listen) {
 				auto listen = (listen_t*) waitable;
 
 				while (true) {
@@ -258,7 +302,7 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 						}
 
 						// Add it to epoll list.
-						ret = this->epoll_set_i(epoll, conn, EPOLL_CTL_ADD,
+						ret = this->epoll_set_i(epoll, conn->sock(), conn, EPOLL_CTL_ADD,
 								conn->pending_send_size() == 0 ?
 								(EPOLLIN | EPOLLET) : (EPOLLOUT | EPOLLET));
 
@@ -310,7 +354,7 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 						}
 
 						if (conn->pending_send_size() > 0) {
-							this->epoll_set_i(epoll, conn, EPOLL_CTL_MOD, EPOLLOUT | EPOLLET);
+							this->epoll_set_i(epoll, conn->sock(), conn, EPOLL_CTL_MOD, EPOLLOUT | EPOLLET);
 						} else if (conn->last_event_result() & event_result_disconnect) {
 							gc = true;
 							break;
@@ -331,7 +375,7 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 							}
 
 							// All data has been sent, switch to receive data mode.
-							this->epoll_set_i(epoll, conn, EPOLL_CTL_MOD, EPOLLIN | EPOLLET);
+							this->epoll_set_i(epoll, conn->sock(), conn, EPOLL_CTL_MOD, EPOLLIN | EPOLLET);
 						}
 					}
 				} while (0);
@@ -339,7 +383,7 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 				// An error happened or client side closed connection,
 				// we need to garbage collect the conn.
 				if (gc) {
-					if (this->epoll_del_i(epoll, conn).ok()) {
+					if (this->epoll_del_i(epoll, conn->sock()).ok()) {
 						// Trigger "on_disconnected" event.
 						handler->on_disconnected(conn);
 
@@ -352,9 +396,8 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 						conn = 0;
 					}
 				}
-			} else if (waitable->wait_type() == waitable_t::type_signal) {
-				;
 			} else {
+				// Should not run here!
 				assert(false);
 			}
 		}
@@ -364,6 +407,11 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 
 clean:
 
+	if (signal_registered) {
+		signal_manager_t::instance()->remove(this->m_stop_signals, this);
+		signal_registered = false;
+	}
+
 	// Trigger "on_disconnected" event for each existing connection.
 	used_list.for_each([handler](conn_t* c) {
 		handler->on_disconnected(c);
@@ -372,16 +420,47 @@ clean:
 
 	free_list.clear();
 
-	delete[] events;
-	events = 0;
+	if (events != 0) {
+		delete[] events;
+		events = 0;
+	}
 
 	epoll.close();
+	this->close_stop_sock_i();
 
 	return ret;
 }
 
-err_t acceptor_t::epoll_set_i(fd_t epoll, waitable_t* waitable, int op, uint32_t events) {
+err_t acceptor_t::stop() {
+	return this->stop_i(0);
+}
+
+void acceptor_t::on_signal(int signum) {
+	this->stop_i(signum);
+}
+
+err_t acceptor_t::stop_i(int signum) {
+	err_t ret;
+
+	// Lock.
+	this->m_stop_sock_mutex.lock();
+
+	if (this->m_stop_sock[1].opened()) {
+		size_t ok_bytes;
+
+		ret = this->m_stop_sock[1].send(&signum, sizeof(signum), &ok_bytes);
+	}
+
+	// Unlock.
+	this->m_stop_sock_mutex.unlock();
+
+	return ret;
+}
+
+err_t acceptor_t::epoll_set_i(fd_t epoll, socket_t sock,
+	waitable_t* waitable, int op, uint32_t events) {
 	assert(epoll.opened());
+	assert(sock.opened());
 	assert(waitable != 0);
 
 	struct epoll_event event;
@@ -389,14 +468,14 @@ err_t acceptor_t::epoll_set_i(fd_t epoll, waitable_t* waitable, int op, uint32_t
 	event.data.ptr = waitable;
 	event.events = events;
 
-	return epoll_ctl(epoll.get(), op, waitable->fd(), &event);
+	return epoll_ctl(epoll.get(), op, sock.get(), &event);
 }
 
-err_t acceptor_t::epoll_del_i(fd_t epoll, waitable_t* waitable) {
+err_t acceptor_t::epoll_del_i(fd_t epoll, socket_t sock) {
 	assert(epoll.opened());
-	assert(waitable != 0);
+	assert(sock.opened());
 
-	return epoll_ctl(epoll.get(), EPOLL_CTL_DEL, waitable->fd(), 0);
+	return epoll_ctl(epoll.get(), EPOLL_CTL_DEL, sock.get(), 0);
 }
 
 void acceptor_t::add_free_conn_i(link_t<conn_t>* free_list, int* free_count, conn_t* conn) {
@@ -439,6 +518,41 @@ err_t acceptor_t::loop_send_i(conn_event_t* handler, conn_t* conn) {
 
 	return ret;
 }
+
+err_t acceptor_t::create_stop_sock_i() {
+	err_t ret;
+	int fd[2];
+
+	// Lock.
+	this->m_stop_sock_mutex.lock();
+
+	assert(this->m_stop_sock[0].closed());
+	assert(this->m_stop_sock[1].closed());
+
+	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0, fd) == -1) {
+		ret = err_t::current();
+	} else {
+		this->m_stop_sock[0] = fd[0];
+		this->m_stop_sock[1] = fd[1];
+	}
+
+	// Unlock.
+	this->m_stop_sock_mutex.unlock();
+
+	return ret;
+}
+
+void acceptor_t::close_stop_sock_i() {
+	// Lock.
+	this->m_stop_sock_mutex.lock();
+
+	this->m_stop_sock[0].close();
+	this->m_stop_sock[1].close();
+
+	// Unlock.
+	this->m_stop_sock_mutex.unlock();
+}
+
 
 } // namespace c11httpd.
 

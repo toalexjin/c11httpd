@@ -24,8 +24,8 @@ public:
 		// conn_t.
 		type_conn,
 
-		// signal_t.
-		type_signal
+		// For stopping acceptor service.
+		type_acceptor_stop
 	};
 
 public:
@@ -38,9 +38,6 @@ public:
 	type_t wait_type() const {
 		return this->m_type;
 	}
-
-	// Get file descriptor.
-	virtual int fd() const = 0;
 
 private:
 	const type_t m_type;
