@@ -128,6 +128,13 @@ uint32_t my_event_handler_t::on_connected(c11httpd::conn_session_t* session,
 	session->set_ctx(new my_context_t());
 
 	std::cout << *session << " was connected." << std::endl;
+
+	send_buf->push_back("=> hello, ");
+	send_buf->push_back(session->ip());
+	send_buf->push_back(":");
+	send_buf->push_back(std::to_string(session->port()));
+	send_buf->push_back("!\r\n");
+
 	return 0;
 }
 
