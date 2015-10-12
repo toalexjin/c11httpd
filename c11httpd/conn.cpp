@@ -24,7 +24,6 @@ void conn_t::close() {
 
 	this->m_ip.clear();
 	this->m_sd.close();
-	this->m_sd = -1;
 	this->m_port = 0;
 	this->m_ipv6 = false;
 	this->m_recv_buf.clear();

@@ -18,8 +18,13 @@ namespace c11httpd {
 class waitable_t {
 public:
 	enum type_t {
+		// listent_t.
 		type_listen,
+
+		// conn_t.
 		type_conn,
+
+		// signal_t.
 		type_signal
 	};
 
