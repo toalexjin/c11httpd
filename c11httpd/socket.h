@@ -62,9 +62,6 @@ public:
 	err_t send(const void* buf, size_t size, size_t* ok_bytes);
 	err_t recv(void* buf, size_t size, size_t* ok_bytes);
 
-	bool nonblock() const;
-	err_t nonblock(bool flag);
-
 	bool reuseaddr() const;
 	err_t reuseaddr(bool flag);
 };

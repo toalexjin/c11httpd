@@ -6,6 +6,7 @@
 
 #include "c11httpd/fd.h"
 #include <unistd.h>
+#include <fcntl.h>
 
 
 namespace c11httpd {
@@ -23,6 +24,26 @@ err_t fd_t::close() {
 	}
 
 	return ret;
+}
+
+bool fd_t::nonblock() const {
+	assert(this->opened());
+
+	const int value = fcntl(this->get(), F_GETFL);
+	return (value & O_NONBLOCK) != 0;
+}
+
+err_t fd_t::nonblock(bool flag) {
+	assert(this->opened());
+
+	const int old = fcntl(this->get(), F_GETFL);
+	const int updated = flag ? (old | O_NONBLOCK) : (old & (~O_NONBLOCK));
+
+	if (old != updated && fcntl(this->get(), F_SETFL, updated) != 0) {
+		return err_t::current();
+	}
+
+	return err_t();
 }
 
 

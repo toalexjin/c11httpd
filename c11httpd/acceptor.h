@@ -8,15 +8,17 @@
 
 #include "c11httpd/pre__.h"
 #include "c11httpd/conn.h"
-#include "c11httpd/conn_base.h"
 #include "c11httpd/conn_event.h"
 #include "c11httpd/err.h"
 #include "c11httpd/link.h"
+#include "c11httpd/listen.h"
+#include "c11httpd/waitable.h"
 #include <initializer_list>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
+#include "listen.h"
 
 
 namespace c11httpd {
@@ -74,13 +76,13 @@ public:
 	// Listens to a list of ports.
 	err_t bind(std::initializer_list<std::pair<std::string, uint16_t>> list);
 
-	// Get already-listened ports.
+	// Get all listening ports.
 	std::vector<std::pair<std::string, uint16_t>> binds() const;
 
 	// Run TCP server service.
 	//
 	// "handler" is used to receive & handle client connection events.
-	err_t run(conn_event_t* handler);
+	err_t run_tcp(conn_event_t* handler);
 
 private:
 	// Remove copy constructor, and operator=().
@@ -88,13 +90,13 @@ private:
 	acceptor_t& operator=(const acceptor_t&) = delete;
 
 private:
-	err_t epoll_set_i(fd_t epoll, conn_base_t* conn, int op, uint32_t events);
-	err_t epoll_del_i(fd_t epoll, conn_base_t* conn);
+	err_t epoll_set_i(fd_t epoll, waitable_t* waitable, int op, uint32_t events);
+	err_t epoll_del_i(fd_t epoll, waitable_t* waitable);
 	void add_free_conn_i(link_t<conn_t>* free_list, int* free_count, conn_t* conn);
 	err_t loop_send_i(conn_event_t* handler, conn_t* conn);
 
 private:
-	std::vector<std::unique_ptr<conn_base_t>> m_listens;
+	std::vector<std::unique_ptr<listen_t>> m_listens;
 	int m_backlog;
 	int m_max_events;
 	int m_max_free_conn;

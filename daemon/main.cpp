@@ -198,7 +198,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	my_event_handler_t handler;
-	ret = acceptor.run(&handler);
+	ret = acceptor.run_tcp(&handler);
 	if (!ret) {
 		std::cout << "acceptor::run() failed. " << ret << std::endl;
 		return 1;

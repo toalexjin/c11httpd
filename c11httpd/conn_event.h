@@ -12,13 +12,17 @@
 
 namespace c11httpd {
 
-enum {
+enum event_result_t {
 	// Close the connection.
+	//
+	// If this flag is on and there are pending data to send,
+	// then it will send data before closing connection.
 	event_result_disconnect = 1,
 
 	// There are more data to send.
 	//
-	// "on_received" might return this flag.
+	// When this flag is on, acceptor_t will keep calling
+	// conn_event_t::get_more_data() until this flag becomes off.
 	event_result_more_data = (1 << 1)
 };
 
@@ -34,28 +38,48 @@ public:
 
 	// A new connection was established.
 	//
-	// If event_result_disconnect is returned, then the connection
-	// would be closed and "on_disconnected" event would NOT be triggered.
+	// "on_connected" event and "on_disconneted" event are always in pairs.
 	//
-	// @return zero or event_result_disconnect.
+	// "send_buf" might have some data pending to send,
+	// so NEVER remove any data that the object already has,
+	// and ALWAYS append data at the end.
+	//
+	// @return A combination value of event_result_t.
 	virtual uint32_t on_connected(conn_session_t* session, buf_t* send_buf);
 
 	// Connection was disconnected.
 	//
-	// For each-success "on_connected" call, there MUST
-	// be a corresponding "on_disconnected" event triggered.
-	// This rule is guaranteed by the library.
+	// "on_connected" event and "on_disconneted" event are always in pairs.
 	virtual void on_disconnected(conn_session_t* session);
 
 	// New data was received.
 	//
-	// @return A combination value of event_result_???
+	// -# If "recv_buf" is completely processed, then call "recv_buf->clear()"
+	//    before this function returns.
+	// -# If "recv_buf" is partially processed, then call "recv_buf->erase_front()"
+	//    before this function returns.
+	// -# If "recv_buf" is NOT processed, then do NOT clear its content.
+	//    When "on_received" event is triggered next time,
+	//    the unprocessed data is still in "recv_buf".
+	//
+	// "send_buf" might have some data pending to send,
+	// so NEVER remove any data that the object already has,
+	// and ALWAYS append data at the end.
+	//
+	// @return A combination value of event_result_t.
 	virtual uint32_t on_received(conn_session_t* session,
 			buf_t* recv_buf, buf_t* send_buf);
 
 	// Get more data to send.
+	//
+	// "send_buf" might have some data pending to send,
+	// so NEVER remove any data that the object already has,
+	// and ALWAYS append data at the end.
+	//
+	// @return A combination value of event_result_t.
 	virtual uint32_t get_more_data(conn_session_t* session, buf_t* send_buf);
 };
+
 
 } // namespace c11httpd.
 

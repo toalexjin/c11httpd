@@ -57,6 +57,9 @@ public:
 
 	err_t close();
 
+	bool nonblock() const;
+	err_t nonblock(bool flag);
+
 private:
 	int m_fd;
 };

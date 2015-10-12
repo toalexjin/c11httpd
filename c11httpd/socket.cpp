@@ -7,7 +7,6 @@
 #include "c11httpd/socket.h"
 #include <cstring>
 #include <unistd.h>
-#include <fcntl.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -195,26 +194,6 @@ err_t socket_t::recv(void* buf, size_t size, size_t* ok_bytes) {
 		*ok_bytes = result;
 		return err_t();
 	}
-}
-
-bool socket_t::nonblock() const {
-	assert(this->opened());
-
-	const int value = fcntl(this->get(), F_GETFL);
-	return (value & O_NONBLOCK) != 0;
-}
-
-err_t socket_t::nonblock(bool flag) {
-	assert(this->opened());
-
-	const int old = fcntl(this->get(), F_GETFL);
-	const int updated = flag ? (old | O_NONBLOCK) : (old & (~O_NONBLOCK));
-
-	if (old != updated && fcntl(this->get(), F_SETFL, updated) != 0) {
-		return err_t::current();
-	}
-
-	return err_t();
 }
 
 bool socket_t::reuseaddr() const {

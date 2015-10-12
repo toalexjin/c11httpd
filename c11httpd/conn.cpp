@@ -22,24 +22,31 @@ void conn_t::close() {
 		this->get_ctx()->clear();
 	}
 
+	this->m_ip.clear();
+	this->m_sd.close();
+	this->m_sd = -1;
+	this->m_port = 0;
+	this->m_ipv6 = false;
 	this->m_recv_buf.clear();
 	this->m_send_buf.clear();
 	this->m_send_offset = 0;
 	this->m_last_event_result = 0;
+}
 
-	conn_base_t::close();
+int conn_t::fd() const {
+	return this->m_sd.get();
 }
 
 const std::string& conn_t::ip() const {
-	return conn_base_t::ip();
+	return this->m_ip;
 }
 
 uint16_t conn_t::port() const {
-	return conn_base_t::port();
+	return this->m_port;
 }
 
 bool conn_t::ipv6() const {
-	return conn_base_t::ipv6();
+	return this->m_ipv6;
 }
 
 buf_t* conn_t::recv_buf() {
@@ -78,7 +85,7 @@ err_t conn_t::recv(size_t* new_recv_size, bool* peer_closed) {
 		}
 
 		*new_recv_size += ok_bytes;
-		this->m_recv_buf.size(this->m_recv_buf.size() + ok_bytes);
+		this->m_recv_buf.add_size(ok_bytes);
 
 		// If no free buffer any more, it probably means there are more data to read.
 		// Otherwise, it should be no more data to read and we do not need to re-allocate buffer.

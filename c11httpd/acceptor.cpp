@@ -80,7 +80,7 @@ err_t acceptor_t::bind_ipv4(const std::string& ip, uint16_t port) {
 		goto clean;
 	}
 
-	this->m_listens.emplace_back(new conn_base_t(sd, real_ip, port, true, false));
+	this->m_listens.emplace_back(new listen_t(sd, real_ip, port, false));
 	ret.set_ok();
 
 clean:
@@ -112,7 +112,7 @@ err_t acceptor_t::bind_ipv6(const std::string& ip, uint16_t port) {
 		goto clean;
 	}
 
-	this->m_listens.emplace_back(new conn_base_t(sd, real_ip, port, true, true));
+	this->m_listens.emplace_back(new listen_t(sd, real_ip, port, true));
 	ret.set_ok();
 
 clean:
@@ -151,7 +151,7 @@ std::vector<std::pair<std::string, uint16_t>> acceptor_t::binds() const {
 	return vt;
 }
 
-err_t acceptor_t::run(conn_event_t* handler) {
+err_t acceptor_t::run_tcp(conn_event_t* handler) {
 	err_t ret;
 	link_t<conn_t> used_list;
 	link_t<conn_t> free_list;
@@ -196,15 +196,17 @@ err_t acceptor_t::run(conn_event_t* handler) {
 		}
 
 		for (int i = 0; i < wait_result; ++i) {
-			auto base = (conn_base_t*) events[i].data.ptr;
+			auto waitable = (waitable_t*) events[i].data.ptr;
 
-			if (base->listening()) {
+			if (waitable->wait_type() == waitable_t::type_listen) {
+				auto listen = (listen_t*) waitable;
+
 				while (true) {
 					conn_t* conn;
 					bool gc = false;
 
 					// Accept new connection.
-					ret = base->sock().accept(&new_sd, &new_ip, &new_port, &new_ipv6);
+					ret = listen->sock().accept(&new_sd, &new_ip, &new_port, &new_ipv6);
 					if (!ret) {
 						if (ret == EAGAIN || ret == EWOULDBLOCK) {
 							break;
@@ -241,13 +243,13 @@ err_t acceptor_t::run(conn_event_t* handler) {
 						// If no data to send and disconnect flag is on,
 						// then close connection.
 						if ((conn->last_event_result() & event_result_disconnect) != 0
-							&& conn->send_pending_size() == 0) {
+							&& conn->pending_send_size() == 0) {
 							gc = true;
 							break;
 						}
 
 						// If there are data to send, then send it right now.
-						if (conn->send_pending_size() > 0) {
+						if (conn->pending_send_size() > 0) {
 							ret = this->loop_send_i(handler, conn);
 							if (!ret) {
 								gc = true;
@@ -257,7 +259,7 @@ err_t acceptor_t::run(conn_event_t* handler) {
 
 						// Add it to epoll list.
 						ret = this->epoll_set_i(epoll, conn, EPOLL_CTL_ADD,
-								conn->send_pending_size() == 0 ?
+								conn->pending_send_size() == 0 ?
 								(EPOLLIN | EPOLLET) : (EPOLLOUT | EPOLLET));
 
 						if (!ret) {
@@ -279,8 +281,8 @@ err_t acceptor_t::run(conn_event_t* handler) {
 					used_list.push_back(conn->link_node());
 					++ used_count;
 				}
-			} else {
-				auto conn = (conn_t*) base;
+			} else if (waitable->wait_type() == waitable_t::type_conn) {
+				auto conn = (conn_t*) waitable;
 				bool gc = false;
 
 				do {
@@ -307,7 +309,7 @@ err_t acceptor_t::run(conn_event_t* handler) {
 							break;
 						}
 
-						if (conn->send_pending_size() > 0) {
+						if (conn->pending_send_size() > 0) {
 							this->epoll_set_i(epoll, conn, EPOLL_CTL_MOD, EPOLLOUT | EPOLLET);
 						} else if (conn->last_event_result() & event_result_disconnect) {
 							gc = true;
@@ -320,7 +322,7 @@ err_t acceptor_t::run(conn_event_t* handler) {
 							break;
 						}
 
-						if (conn->send_pending_size() == 0) {
+						if (conn->pending_send_size() == 0) {
 							// If all data has been sent and disconnect flag is on,
 							// then close connection.
 							if (conn->last_event_result() & event_result_disconnect) {
@@ -350,6 +352,10 @@ err_t acceptor_t::run(conn_event_t* handler) {
 						conn = 0;
 					}
 				}
+			} else if (waitable->wait_type() == waitable_t::type_signal) {
+				;
+			} else {
+				assert(false);
 			}
 		}
 	}
@@ -374,23 +380,23 @@ clean:
 	return ret;
 }
 
-err_t acceptor_t::epoll_set_i(fd_t epoll, conn_base_t* conn, int op, uint32_t events) {
+err_t acceptor_t::epoll_set_i(fd_t epoll, waitable_t* waitable, int op, uint32_t events) {
 	assert(epoll.opened());
-	assert(conn != 0);
+	assert(waitable != 0);
 
 	struct epoll_event event;
 
-	event.data.ptr = conn;
+	event.data.ptr = waitable;
 	event.events = events;
 
-	return epoll_ctl(epoll.get(), op, conn->sock().get(), &event);
+	return epoll_ctl(epoll.get(), op, waitable->fd(), &event);
 }
 
-err_t acceptor_t::epoll_del_i(fd_t epoll, conn_base_t* conn) {
+err_t acceptor_t::epoll_del_i(fd_t epoll, waitable_t* waitable) {
 	assert(epoll.opened());
-	assert(conn != 0);
+	assert(waitable != 0);
 
-	return epoll_ctl(epoll.get(), EPOLL_CTL_DEL, conn->sock().get(), 0);
+	return epoll_ctl(epoll.get(), EPOLL_CTL_DEL, waitable->fd(), 0);
 }
 
 void acceptor_t::add_free_conn_i(link_t<conn_t>* free_list, int* free_count, conn_t* conn) {
@@ -425,7 +431,7 @@ err_t acceptor_t::loop_send_i(conn_event_t* handler, conn_t* conn) {
 		}
 
 		conn->last_event_result(handler->get_more_data(conn, conn->send_buf()));
-		if (conn->send_pending_size() == 0) {
+		if (conn->pending_send_size() == 0) {
 			assert((conn->last_event_result() & event_result_more_data) == 0);
 			break;
 		}

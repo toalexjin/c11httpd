@@ -1,5 +1,5 @@
 /**
- * Connection base class.
+ * Listening socket.
  *
  * Copyright (c) 2015 Alex Jin (toalexjin@hotmail.com)
  */
@@ -8,6 +8,7 @@
 
 #include "c11httpd/pre__.h"
 #include "c11httpd/socket.h"
+#include "c11httpd/waitable.h"
 #include <string>
 #include <iostream>
 
@@ -15,17 +16,19 @@
 namespace c11httpd {
 
 
-// Connection base class.
-//
-// This is the base class for both server listening sockets & client incoming sockets.
-class conn_base_t {
+// Listening socket.
+class listen_t : public waitable_t {
 public:
-	conn_base_t(socket_t sd, const std::string& ip, uint16_t port, bool listening, bool ipv6)
-		: m_ip(ip), m_sd(sd), m_port(port), m_listening(listening), m_ipv6(ipv6) {
+	listen_t(socket_t sd, const std::string& ip, uint16_t port, bool ipv6)
+		: waitable_t(waitable_t::type_listen), m_ip(ip),
+		  m_sd(sd), m_port(port), m_ipv6(ipv6) {
 	}
 
-	virtual ~conn_base_t();
+	virtual ~listen_t();
 	virtual void close();
+
+	// Get file descriptor of the socket.
+	virtual int fd() const;
 
 	socket_t sock() const {
 		return this->m_sd;
@@ -51,10 +54,6 @@ public:
 		this->m_port = port;
 	}
 
-	bool listening() const {
-		return this->m_listening;
-	}
-
 	bool ipv6() const {
 		return this->m_ipv6;
 	}
@@ -65,23 +64,22 @@ public:
 
 private:
 	// Remove default constructor, copy constructor, and operator=().
-	conn_base_t() = delete;
-	conn_base_t(const conn_base_t&) = delete;
-	conn_base_t& operator=(const conn_base_t&) = delete;
+	listen_t() = delete;
+	listen_t(const listen_t&) = delete;
+	listen_t& operator=(const listen_t&) = delete;
 
 private:
 	std::string m_ip;
 	socket_t m_sd;
 	uint16_t m_port;
-	const bool m_listening;
 	bool m_ipv6;
 };
 
 
 template <typename Char, typename Traits>
 inline std::basic_ostream<Char, Traits>& operator<<(
-		std::basic_ostream<Char, Traits>& ostream, const conn_base_t& conn) {
-	ostream << conn.ip() << ":" << conn.port();
+		std::basic_ostream<Char, Traits>& ostream, const listen_t& listen) {
+	ostream << listen.ip() << ":" << listen.port();
 
 	return ostream;
 }

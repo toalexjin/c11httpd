@@ -4,20 +4,24 @@
  * Copyright (c) 2015 Alex Jin (toalexjin@hotmail.com)
  */
 
-#include "c11httpd/conn_base.h"
+#include <c11httpd/listen.h>
 
 
 namespace c11httpd {
 
 
-conn_base_t::~conn_base_t() {
+listen_t::~listen_t() {
 	this->close();
 }
 
-void conn_base_t::close() {
+void listen_t::close() {
 	this->m_sd.close();
+	this->m_sd = -1;
 }
 
+int listen_t::fd() const {
+	return this->m_sd.get();
+}
 
 } // namespace c11httpd.
 

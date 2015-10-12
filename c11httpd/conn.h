@@ -8,11 +8,12 @@
 
 #include "c11httpd/pre__.h"
 #include "c11httpd/buf.h"
-#include "c11httpd/conn_base.h"
 #include "c11httpd/conn_session.h"
 #include "c11httpd/link.h"
+#include "c11httpd/listen.h"
 #include "c11httpd/socket.h"
 #include <string>
+#include "listen.h"
 
 
 namespace c11httpd {
@@ -23,10 +24,11 @@ namespace c11httpd {
 // For each new client incoming connection, a conn_t object
 // would be created. After the client connection was disconnected,
 // the conn_t object might be re-used by acceptor_t for better performance.
-class conn_t : public conn_base_t, public conn_session_t {
+class conn_t : public waitable_t, public conn_session_t {
 public:
 	conn_t(const socket_t& sd, const std::string& ip, uint16_t port, bool ipv6)
-		: conn_base_t(sd, ip, port, false, ipv6),
+		: waitable_t(waitable_t::type_conn),
+		m_ip(ip), m_sd(sd), m_port(port), m_ipv6(ipv6),
 		m_link(uintptr_t(&this->m_link) - uintptr_t(this)) {
 
 		assert(this == this->m_link.get());
@@ -36,29 +38,42 @@ public:
 
 	virtual ~conn_t();
 
-	// Close internal handles, reset internal variables, but do not free memory.
+	// Close handles, reset variables, but do not free memory.
 	//
 	// acceptor_t would call conn_t::close() and then
 	// put the object to a free conn_t list for re-use.
 	virtual void close();
 
+	// Get file descriptor of the socket.
+	virtual int fd() const;
+
+	socket_t sock() const {
+		return this->m_sd;
+	}
+
+	void sock(socket_t sd) {
+		this->m_sd = sd;
+	}
+
 	void ip(const std::string& ip) {
-		conn_base_t::ip(ip);
+		this->m_ip = ip;
 	}
 
 	void port(uint16_t port) {
-		conn_base_t::port(port);
+		this->m_port = port;
 	}
 
 	void ipv6(bool ipv6) {
-		conn_base_t::ipv6(ipv6);
+		this->m_ipv6 = ipv6;
 	}
 
+	// Following three functions are defined
+	// in parent class conn_session_t, so they are virtual.
 	virtual const std::string& ip() const;
 	virtual uint16_t port() const;
 	virtual bool ipv6() const;
 
-	size_t send_pending_size() const {
+	size_t pending_send_size() const {
 		return this->m_send_buf.size() - this->m_send_offset;
 	}
 
@@ -93,6 +108,10 @@ private:
 	conn_t& operator=(const conn_t&) = delete;
 
 private:
+	std::string m_ip;
+	socket_t m_sd;
+	uint16_t m_port;
+	bool m_ipv6;
 	link_t<conn_t> m_link;
 	buf_t m_recv_buf;
 	buf_t m_send_buf;
