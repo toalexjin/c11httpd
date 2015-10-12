@@ -91,6 +91,7 @@ private:
 	err_t epoll_set_i(fd_t epoll, conn_base_t* conn, int op, uint32_t events);
 	err_t epoll_del_i(fd_t epoll, conn_base_t* conn);
 	void add_free_conn_i(link_t<conn_t>* free_list, int* free_count, conn_t* conn);
+	err_t loop_send_i(conn_event_t* handler, conn_t* conn);
 
 private:
 	std::vector<std::unique_ptr<conn_base_t>> m_listens;

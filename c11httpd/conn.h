@@ -59,12 +59,7 @@ public:
 	virtual bool ipv6() const;
 
 	size_t send_pending_size() const {
-		return this->m_send.size() - this->m_send_offset;
-	}
-
-	void send_clear() {
-		this->m_send_offset = 0;
-		this->m_send.clear();
+		return this->m_send_buf.size() - this->m_send_offset;
 	}
 
 	uint32_t last_event_result() const {
@@ -99,8 +94,8 @@ private:
 
 private:
 	link_t<conn_t> m_link;
-	buf_t m_recv;
-	buf_t m_send;
+	buf_t m_recv_buf;
+	buf_t m_send_buf;
 	size_t m_send_offset;
 	uint32_t m_last_event_result;
 };

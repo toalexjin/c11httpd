@@ -22,8 +22,8 @@ void conn_t::close() {
 		this->get_ctx()->clear();
 	}
 
-	this->m_recv.clear();
-	this->m_send.clear();
+	this->m_recv_buf.clear();
+	this->m_send_buf.clear();
 	this->m_send_offset = 0;
 	this->m_last_event_result = 0;
 
@@ -43,11 +43,11 @@ bool conn_t::ipv6() const {
 }
 
 buf_t* conn_t::recv_buf() {
-	return &this->m_recv;
+	return &this->m_recv_buf;
 }
 
 buf_t* conn_t::send_buf() {
-	return &this->m_send;
+	return &this->m_send_buf;
 }
 
 err_t conn_t::recv(size_t* new_recv_size, bool* peer_closed) {
@@ -61,11 +61,11 @@ err_t conn_t::recv(size_t* new_recv_size, bool* peer_closed) {
 	*new_recv_size = 0;
 	*peer_closed = false;
 
-	this->m_recv.back(unit_size);
+	this->m_recv_buf.back(unit_size);
 	while (1) {
-		ret = this->sock().recv(this->m_recv.back(), this->m_recv.free_size(), &ok_bytes);
+		ret = this->sock().recv(this->m_recv_buf.back(), this->m_recv_buf.free_size(), &ok_bytes);
 		if (!ret) {
-			if (*new_recv_size > 0 && (ret == EAGAIN || ret == EWOULDBLOCK)) {
+			if (ret == EAGAIN || ret == EWOULDBLOCK) {
 				ret.set_ok();
 			}
 
@@ -78,19 +78,19 @@ err_t conn_t::recv(size_t* new_recv_size, bool* peer_closed) {
 		}
 
 		*new_recv_size += ok_bytes;
-		this->m_recv.size(this->m_recv.size() + ok_bytes);
+		this->m_recv_buf.size(this->m_recv_buf.size() + ok_bytes);
 
 		// If no free buffer any more, it probably means there are more data to read.
 		// Otherwise, it should be no more data to read and we do not need to re-allocate buffer.
 		// Anyway, we should not stop until getting EAGAIN or EWOULDBLOCK.
-		if (this->m_recv.free_size() == 0) {
-			this->m_recv.back(unit_size);
+		if (this->m_recv_buf.free_size() == 0) {
+			this->m_recv_buf.back(unit_size);
 		}
 	}
 
 	// If there are free space, then add a null-terminal to make debug easier.
-	if (this->m_recv.free_size() > 0) {
-		this->m_recv.back()[0] = 0;
+	if (this->m_recv_buf.free_size() > 0) {
+		this->m_recv_buf.back()[0] = 0;
 	}
 
 	return ret;
@@ -103,19 +103,26 @@ err_t conn_t::send(size_t* new_send_size) {
 	assert(new_send_size != 0);
 	*new_send_size = 0;
 
-	while (this->m_send_offset < this->m_send.size()) {
-		ret = this->sock().send(this->m_send.front() + this->m_send_offset,
-				this->m_send.size() - this->m_send_offset, &ok_bytes);
-		if (!ret) {
-			if (*new_send_size > 0 && (ret == EAGAIN || ret == EWOULDBLOCK)) {
-				ret.set_ok();
-			}
+	if (this->m_send_offset == this->m_send_buf.size()) {
+		return ret;
+	}
 
+	while (true) {
+		ret = this->sock().send(this->m_send_buf.front() + this->m_send_offset,
+				this->m_send_buf.size() - this->m_send_offset, &ok_bytes);
+		if (!ret) {
 			break;
 		}
 
 		*new_send_size += ok_bytes;
 		this->m_send_offset += ok_bytes;
+
+		// If all data has been sent, then reset state.
+		if (this->m_send_offset == this->m_send_buf.size()) {
+			this->m_send_offset = 0;
+			this->m_send_buf.clear();
+			break;
+		}
 	}
 
 	return ret;

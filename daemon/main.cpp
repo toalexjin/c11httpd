@@ -39,10 +39,11 @@ public:
 	}
 
 	void next(c11httpd::buf_t* send_buf) {
-		send_buf->push_back(this->m_str);
-		send_buf->push_back("@");
+		send_buf->push_back("(");
 		send_buf->push_back(std::to_string(this->m_index + 1));
-		send_buf->push_back(" ");
+		send_buf->push_back("@");
+		send_buf->push_back(this->m_str);
+		send_buf->push_back(")\r\n");
 
 		this->m_index ++;
 	}
@@ -65,7 +66,7 @@ void my_context_t::parse(char* first, const char* last) {
 	this->clear();
 
 	// Skip starting whitespace.
-	while (first != last && *first == ' ') {
+	while (first != last && *first == ' ' && *first == '\t') {
 		++first;
 	}
 
@@ -75,7 +76,7 @@ void my_context_t::parse(char* first, const char* last) {
 	}
 
 	char* ptr = first + 1;
-	while (ptr != last && *ptr != ' ') {
+	while (ptr != last && *ptr != ' ' && *ptr != '\t') {
 		++ptr;
 	}
 
@@ -94,7 +95,7 @@ void my_context_t::parse(char* first, const char* last) {
 
 	// Skip whitespace.
 	++ ptr;
-	while (ptr != last && *ptr == ' ') {
+	while (ptr != last && *ptr == ' ' && *ptr == '\t') {
 		++ptr;
 	}
 
@@ -103,17 +104,7 @@ void my_context_t::parse(char* first, const char* last) {
 		return;
 	}
 
-	const char* ptr2 = ptr;
-	while (ptr2 != last && *ptr2 != '\r' && *ptr2 == '\n') {
-		++ptr2;
-	}
-
-	if (ptr == ptr2) {
-		this->set_default();
-		return;
-	}
-
-	this->m_str.assign(ptr, ptr2 - ptr);
+	this->m_str.assign(ptr, last - ptr);
 }
 
 
@@ -146,13 +137,24 @@ void my_event_handler_t::on_disconnected(c11httpd::conn_session_t* session) {
 
 uint32_t my_event_handler_t::on_received(c11httpd::conn_session_t* session,
 		c11httpd::buf_t* recv_buf, c11httpd::buf_t* send_buf) {
+	char* first = recv_buf->front();
+	char* last = first;
+
+	while (last != recv_buf->front() + recv_buf->size()) {
+		if (*last == 0 || *last == '\r' || *last == '\n') {
+			break;
+		}
+
+		++ last;
+	}
+
 	// Print at server side.
-	std::cout << *session << " -> ";
-	std::cout.write(recv_buf->front(), recv_buf->size());
-	std::cout << std::endl;
+	std::cout << *session << " -> (";
+	std::cout.write(first, last - first);
+	std::cout << ")" << std::endl;
 
 	my_context_t* ctx = (my_context_t*) session->get_ctx();
-	ctx->parse(recv_buf->front(), recv_buf->front() + recv_buf->size());
+	ctx->parse(first, last);
 
 	// Clear recv data as we already processed it.
 	recv_buf->clear();

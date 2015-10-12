@@ -241,9 +241,18 @@ err_t acceptor_t::run(conn_event_t* handler) {
 						// If no data to send and disconnect flag is on,
 						// then close connection.
 						if ((conn->last_event_result() & event_result_disconnect) != 0
-								&& conn->send_pending_size() == 0) {
+							&& conn->send_pending_size() == 0) {
 							gc = true;
 							break;
+						}
+
+						// If there are data to send, then send it right now.
+						if (conn->send_pending_size() > 0) {
+							ret = this->loop_send_i(handler, conn);
+							if (!ret) {
+								gc = true;
+								break;
+							}
 						}
 
 						// Add it to epoll list.
@@ -286,15 +295,17 @@ err_t acceptor_t::run(conn_event_t* handler) {
 							break;
 						}
 
+						// Trigger "on_received" event.
+						if (new_recv_size > 0) {
+							conn->last_event_result(handler->on_received(
+									conn, conn->recv_buf(), conn->send_buf()));
+						}
+
 						// Client side has closed connection.
 						if (peer_closed) {
 							gc = true;
 							break;
 						}
-
-						// Trigger "on_received" event.
-						conn->last_event_result(handler->on_received(
-								conn, conn->recv_buf(), conn->send_buf()));
 
 						if (conn->send_pending_size() > 0) {
 							this->epoll_set_i(epoll, conn, EPOLL_CTL_MOD, EPOLLOUT | EPOLLET);
@@ -303,37 +314,23 @@ err_t acceptor_t::run(conn_event_t* handler) {
 							break;
 						}
 					} else if (events[i].events & EPOLLOUT) {
-						size_t new_send_size;
-
-						ret = conn->send(&new_send_size);
+						ret = this->loop_send_i(handler, conn);
 						if (!ret) {
 							gc = true;
 							break;
 						}
 
-						// Some data are still pending.
-						if (conn->send_pending_size() > 0) {
-							break;
-						}
-
-						if (conn->last_event_result() & event_result_more_data) {
-							// Get more data to send.
-							conn->last_event_result(handler->get_more_data(conn, conn->send_buf()));
-							if (conn->send_pending_size() > 0) {
+						if (conn->send_pending_size() == 0) {
+							// If all data has been sent and disconnect flag is on,
+							// then close connection.
+							if (conn->last_event_result() & event_result_disconnect) {
+								gc = true;
 								break;
 							}
+
+							// All data has been sent, switch to receive data mode.
+							this->epoll_set_i(epoll, conn, EPOLL_CTL_MOD, EPOLLIN | EPOLLET);
 						}
-
-						// All data has been sent, reset send buffer.
-						conn->send_clear();
-
-						if (conn->last_event_result() & event_result_disconnect) {
-							gc = true;
-							break;
-						}
-
-						// All data has been sent, switch to receive data mode.
-						this->epoll_set_i(epoll, conn, EPOLL_CTL_MOD, EPOLLIN | EPOLLET);
 					}
 				} while (0);
 
@@ -409,6 +406,33 @@ void acceptor_t::add_free_conn_i(link_t<conn_t>* free_list, int* free_count, con
 	}
 }
 
+err_t acceptor_t::loop_send_i(conn_event_t* handler, conn_t* conn) {
+	err_t ret;
+
+	while (true) {
+		size_t new_send_size;
+		ret = conn->send(&new_send_size);
+		if (!ret) {
+			if (ret == EAGAIN || ret == EWOULDBLOCK) {
+				ret.set_ok();
+			}
+
+			break;
+		}
+
+		if ((conn->last_event_result() & event_result_more_data) == 0) {
+			break;
+		}
+
+		conn->last_event_result(handler->get_more_data(conn, conn->send_buf()));
+		if (conn->send_pending_size() == 0) {
+			assert((conn->last_event_result() & event_result_more_data) == 0);
+			break;
+		}
+	}
+
+	return ret;
+}
 
 } // namespace c11httpd.
 
