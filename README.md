@@ -36,8 +36,7 @@ acceptor.bind({{"", 2000}, {"0.0.0.0", 2001}, {"::", 2002}});
 // Create 4 worker processes. All of them listen to the same TCP ports
 // and receive client incoming requests.
 //
-// The main process is pure management process,
-// will restart worker processes if they diead.
+// The main process is pure management process, will restart worker processes if they died.
 acceptor.worker_processes(4);
 
 // Run TCP service.
