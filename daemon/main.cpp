@@ -198,8 +198,8 @@ int main(int argc, char* argv[]) {
 		std::cout << "Listen-> " << (*it).first << ":" << (*it).second << std::endl;
 	}
 
-	// Totally three process workers.
-	acceptor.process_number(3);
+	// Totally three worker processes.
+	acceptor.worker_processes(1);
 
 	//my_event_handler_t handler;
 	//ret = acceptor.run_tcp(&handler);
@@ -213,7 +213,7 @@ int main(int argc, char* argv[]) {
 		return 0;
 	});
 
-	if (!acceptor.child_process()) {
+	if (acceptor.main_process()) {
 		if (!ret) {
 			std::cout << "acceptor::run() failed. " << ret << std::endl;
 			return 1;

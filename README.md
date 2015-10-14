@@ -33,9 +33,12 @@ c11httpd::acceptor_t acceptor;
 // Listen to TCP port 2000 (ipv4 & ipv6), 2001 (ipv4), 2002 (ipv6).
 acceptor.bind({{"", 2000}, {"0.0.0.0", 2001}, {"::", 2002}});
 
-// Totally 5 process workers (including main process).
-// All of them listen to the same TCP ports and receive client requests.
-acceptor.process_number(5);
+// Create 4 worker processes. All of them listen to the same TCP ports
+// and receive client incoming requests.
+//
+// The main process is pure management process,
+// will restart worker processes if they diead.
+acceptor.worker_processes(4);
 
 // Run TCP service.
 acceptor.run_tcp([](

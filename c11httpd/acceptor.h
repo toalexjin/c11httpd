@@ -13,7 +13,7 @@
 #include "c11httpd/err.h"
 #include "c11httpd/link.h"
 #include "c11httpd/listen.h"
-#include "c11httpd/process_pool.h"
+#include "c11httpd/worker_pool.h"
 #include "c11httpd/signal_event.h"
 #include "c11httpd/socket.h"
 #include "c11httpd/waitable.h"
@@ -80,20 +80,26 @@ public:
 	// Get all listening ports.
 	std::vector<std::pair<std::string, uint16_t>> binds() const;
 
-	// Get number of process workers (including current main process).
-	int process_number() const {
-		return this->m_process_number;
+	// Get number of worker processes.
+	int worker_processes() const {
+		return this->m_worker_processes;
 	}
 
-	// Set number of process workers (including current main process).
-	void process_number(int process_number) {
-		assert(process_number >= 1);
-		this->m_process_number = process_number;
+	// Set number of worker processes.
+	//
+	// -# If the number is zero, then the main process does everything,
+	//    including receiving incoming client requests.
+	// -# If the number is greater than zero, than the main process
+	//    would become a pure management process, will NOT receive
+	//    incoming client requests and will restart worker processes if they died.
+	void worker_processes(int worker_processes) {
+		assert(worker_processes >= 1);
+		this->m_worker_processes = worker_processes;
 	}
 
-	// Return true if it's child process worker.
-	bool child_process() const {
-		return this->m_process_pool.child_process();
+	// Return true if it's not worker process.
+	bool main_process() const {
+		return this->m_worker_pool.main_process();
 	}
 
 	// Run TCP server service.
@@ -125,15 +131,15 @@ private:
 	err_t loop_send_i(conn_event_t* handler, conn_t* conn);
 	err_t create_signal_sock_i();
 	void close_signal_sock_i();
-	err_t recv_signal_sock_i(bool* exit);
+	err_t recv_signal_sock_i(fd_t* epoll, bool* exit);
 	err_t send_signal_sock_i(int signum);
 
 private:
 	std::vector<std::unique_ptr<listen_t>> m_listens;
-	process_pool_t m_process_pool;
+	worker_pool_t m_worker_pool;
 	std::recursive_mutex m_signal_sock_mutex;
 	socket_t m_signal_sock[2];
-	int m_process_number;
+	int m_worker_processes;
 	int m_backlog;
 	int m_max_events;
 	int m_max_free_conn;

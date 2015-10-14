@@ -30,7 +30,7 @@ const std::string acceptor_t::ipv6_loopback("::1");
 
 
 acceptor_t::acceptor_t() : waitable_t(waitable_t::type_signal) {
-	this->m_process_number = 1;
+	this->m_worker_processes = 0;
 	this->m_backlog = 10;
 	this->m_max_events = 256;
 	this->m_max_free_conn = 128;
@@ -187,10 +187,12 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 	signal_manager_t::instance()->add(hook_signals, this);
 	signal_registered = true;
 
-	// Create child process workers.
-	ret = this->m_process_pool.create_worker(this->m_process_number - 1);
-	if (!ret) {
-		goto clean;
+	// Create worker processes.
+	if (this->m_worker_processes > 0) {
+		ret = this->m_worker_pool.create(this->m_worker_processes);
+		if (!ret) {
+			goto clean;
+		}
 	}
 
 	// Create epoll handle.
@@ -212,10 +214,12 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 	}
 
 	// Add listening sockets.
-	for (auto it = this->m_listens.begin(); it != this->m_listens.end(); ++it) {
-		ret = this->epoll_set_i(epoll, (*it).get()->sock(), (*it).get(), EPOLL_CTL_ADD, EPOLLIN | EPOLLET);
-		if (!ret) {
-			goto clean;
+	if (this->m_worker_processes == 0 || !this->m_worker_pool.main_process()) {
+		for (auto it = this->m_listens.begin(); it != this->m_listens.end(); ++it) {
+			ret = this->epoll_set_i(epoll, (*it).get()->sock(), (*it).get(), EPOLL_CTL_ADD, EPOLLIN | EPOLLET);
+			if (!ret) {
+				goto clean;
+			}
 		}
 	}
 
@@ -240,10 +244,11 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 			if (waitable->wait_type() == waitable_t::type_signal) {
 				bool exit;
 
-				ret = this->recv_signal_sock_i(&exit);
+				ret = this->recv_signal_sock_i(&epoll, &exit);
 				if (!ret || exit) {
 					goto clean;
 				}
+
 			} else if (waitable->wait_type() == waitable_t::type_listen) {
 				auto listen = (listen_t*) waitable;
 
@@ -425,8 +430,8 @@ clean:
 	epoll.close();
 	this->close_signal_sock_i();
 
-	// Kill all process workers.
-	this->m_process_pool.kill_children();
+	// Kill all worker process.
+	this->m_worker_pool.kill_all();
 
 	if (signal_registered) {
 		signal_manager_t::instance()->remove(hook_signals, this);
@@ -448,22 +453,7 @@ err_t acceptor_t::stop() {
 }
 
 void acceptor_t::on_signalled(int signum) {
-	switch (signum) {
-	case SIGCHLD:
-		while (true) {
-			int status;
-			const auto pid = waitpid(-1, &status, WNOHANG);
-			if (pid > 0) {
-				this->m_process_pool.on_terminated(pid);
-			} else {
-				break;
-			}
-		}
-		break;
-
-	default:
-		this->send_signal_sock_i(signum);
-	}
+	this->send_signal_sock_i(signum);
 }
 
 err_t acceptor_t::epoll_set_i(fd_t epoll, socket_t sock,
@@ -562,7 +552,9 @@ void acceptor_t::close_signal_sock_i() {
 	this->m_signal_sock_mutex.unlock();
 }
 
-err_t acceptor_t::recv_signal_sock_i(bool* exit) {
+err_t acceptor_t::recv_signal_sock_i(fd_t* epoll, bool* exit) {
+	err_t ret;
+	int dead_workers = 0;
 	uint8_t buf[256];
 	size_t ok_bytes;
 
@@ -573,24 +565,85 @@ err_t acceptor_t::recv_signal_sock_i(bool* exit) {
 	*exit = false;
 
 	while (true) {
-		auto ret = this->m_signal_sock[0].recv(buf, sizeof(buf), &ok_bytes);
+		ret = this->m_signal_sock[0].recv(buf, sizeof(buf), &ok_bytes);
 		if (!ret) {
 			if (ret == EAGAIN || ret == EWOULDBLOCK) {
 				ret.set_ok();
 			}
 
-			return ret;
+			break;
 		}
 
 		for (size_t i = 0; i < ok_bytes; ++i) {
 			if (buf[i] == SIGINT || buf[i] == SIGTERM) {
 				*exit = true;
-				return err_t();
+				ret.set_ok();
+				goto clean;
+			} else if (buf[i] == SIGCHLD) {
+				while (true) {
+					int status;
+					const auto pid = waitpid(-1, &status, WNOHANG);
+
+					if (pid > 0) {
+						if (this->m_worker_pool.on_terminated(pid)) {
+							++ dead_workers;
+						}
+					} else {
+						break;
+					}
+				}
 			}
 		}
 	}
 
-	return err_t();
+	// Re-start worker processes if they died.
+	if (dead_workers > 0
+		&& this->m_worker_pool.main_process()
+		&& this->m_worker_processes > 0) {
+
+		// Close handles before fork to avoid child process get them.
+		epoll->close();
+		this->close_signal_sock_i();
+
+		// Create worker processes.
+		this->m_worker_pool.create(dead_workers);
+
+		// Create epoll handle.
+		*epoll = epoll_create1(EPOLL_CLOEXEC);
+		if (!epoll->opened()) {
+			ret.set_current();
+			goto clean;
+		}
+
+		// Create a pair of sockets for forwarding Linux signals to epoll.
+		ret = this->create_signal_sock_i();
+		if (!ret) {
+			goto clean;
+		}
+
+		ret = this->epoll_set_i(*epoll, this->m_signal_sock[0], this, EPOLL_CTL_ADD, EPOLLIN | EPOLLET);
+		if (!ret) {
+			goto clean;
+		}
+
+		// Child process gets parent process' handles,
+		// we need to close & re-create them.
+		if (!this->m_worker_pool.main_process()) {
+			// Add listening sockets.
+			for (auto it = this->m_listens.begin(); it != this->m_listens.end(); ++it) {
+				ret = this->epoll_set_i(*epoll, (*it).get()->sock(), (*it).get(), EPOLL_CTL_ADD, EPOLLIN | EPOLLET);
+				if (!ret) {
+					goto clean;
+				}
+			}
+		}
+	}
+
+	ret.set_ok();
+
+clean:
+
+	return ret;
 }
 
 err_t acceptor_t::send_signal_sock_i(int signum) {
