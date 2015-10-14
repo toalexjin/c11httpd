@@ -11,14 +11,14 @@ A lightweight httpd library in C++ C11.
 - **High Performance**: c11httpd library leverages Linux asynchronous IO,
   could support over 10,000 concurrent connections. Although c11httpd is
   written in C++, it does not create objects arbitrarily, which might
-  cause performance issue (For instance, it uses C-style doubly linked lists
-  to save active & free connections). c11httpd is trying to get a good balance
-  between C++ OOP/Meta-programming & C data structure.
+  cause performance issue. For instance, c11httpd uses C-style
+  doubly linked lists to save active & free connections. c11httpd is trying to
+  get a good balance between C++ OOP/Meta-programming & C data structure.
 - **Simple Implementation**: Some C++ libraries (e.g. **boost**) are too crazy,
   use meta-programming (C++ Template) too much, although in some cases
   there is a better C-style solution. That's probably why **Linus Torvalds**
   dislikes C++ language. Meta-programming looks very cool
-  (I used to like it very much :smile:) but might bring troubles:
+  (I used to like it very much :sleeping:) but might bring troubles:
    - Build failure error message is not easy-to-read.
    - Not easy to debug code with gdb.
    - Team members might have trouble to read the code.
@@ -36,9 +36,9 @@ acceptor.bind({{"", 2000}, {"0.0.0.0", 2001}, {"::", 2002}});
 // Stop the service when specified Linux signals are received.
 acceptor.stop_signals({SIGTERM, SIGINT});
 
-// Create a few server-side worker processes.
-// All of them listen to the same TCP ports and handle client requests.
-acceptor.process_number(5);
+// Create several worker processes. All of them listen to
+// the same TCP ports and receive client requests.
+acceptor.create_process_worker(5);
 
 // Run TCP service.
 acceptor.run_tcp([](
