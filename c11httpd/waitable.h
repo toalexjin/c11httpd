@@ -24,8 +24,8 @@ public:
 		// conn_t.
 		type_conn,
 
-		// For stopping acceptor service.
-		type_acceptor_stop
+		// Linux signals.
+		type_signal
 	};
 
 public:

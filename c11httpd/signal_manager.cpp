@@ -44,7 +44,7 @@ void signal_proc(int signum) {
 	for (auto it = st_handlers[signum - 1].cbegin();
 			it != st_handlers[signum - 1].cend();
 			++it) {
-		(*it)->on_signal(signum);
+		(*it)->on_signalled(signum);
 	}
 
 	// Unlock

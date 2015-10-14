@@ -21,7 +21,7 @@ public:
 	virtual ~signal_event_t() = default;
 
 	// Triggered when a Linux signal is received.
-	virtual void on_signal(int signum);
+	virtual void on_signalled(int signum);
 };
 
 

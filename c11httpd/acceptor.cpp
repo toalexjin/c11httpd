@@ -15,6 +15,7 @@
 #include <sys/epoll.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/wait.h>
 #include <signal.h>
 
 
@@ -28,7 +29,8 @@ const std::string acceptor_t::ipv6_any("::");
 const std::string acceptor_t::ipv6_loopback("::1");
 
 
-acceptor_t::acceptor_t() : waitable_t(waitable_t::type_acceptor_stop) {
+acceptor_t::acceptor_t() : waitable_t(waitable_t::type_signal) {
+	this->m_process_number = 1;
 	this->m_backlog = 10;
 	this->m_max_events = 256;
 	this->m_max_free_conn = 128;
@@ -166,6 +168,7 @@ std::vector<std::pair<std::string, uint16_t>> acceptor_t::binds() const {
 
 err_t acceptor_t::run_tcp(conn_event_t* handler) {
 	err_t ret;
+	const std::vector<int> hook_signals({SIGTERM, SIGINT, SIGCHLD});
 	link_t<conn_t> used_list;
 	link_t<conn_t> free_list;
 	int used_count = 0;
@@ -180,6 +183,16 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 
 	assert(handler != 0);
 
+	// Hook Linux signal events.
+	signal_manager_t::instance()->add(hook_signals, this);
+	signal_registered = true;
+
+	// Create child process workers.
+	ret = this->m_process_pool.create_worker(this->m_process_number - 1);
+	if (!ret) {
+		goto clean;
+	}
+
 	// Create epoll handle.
 	epoll = epoll_create1(EPOLL_CLOEXEC);
 	if (!epoll.opened()) {
@@ -187,13 +200,13 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 		goto clean;
 	}
 
-	// Create a pair of sockets for stopping the service.
-	ret = this->create_stop_sock_i();
+	// Create a pair of sockets for forwarding Linux signals to epoll.
+	ret = this->create_signal_sock_i();
 	if (!ret) {
 		goto clean;
 	}
 
-	ret = this->epoll_set_i(epoll, this->m_stop_sock[0], this, EPOLL_CTL_ADD, EPOLLIN | EPOLLET);
+	ret = this->epoll_set_i(epoll, this->m_signal_sock[0], this, EPOLL_CTL_ADD, EPOLLIN | EPOLLET);
 	if (!ret) {
 		goto clean;
 	}
@@ -204,12 +217,6 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 		if (!ret) {
 			goto clean;
 		}
-	}
-
-	// Receive Linux signal events.
-	if (!this->m_stop_signals.empty()) {
-		signal_manager_t::instance()->add(this->m_stop_signals, this);
-		signal_registered = true;
 	}
 
 	events = new struct epoll_event[this->m_max_events];
@@ -230,18 +237,13 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 		for (int i = 0; i < wait_result; ++i) {
 			auto waitable = (waitable_t*) events[i].data.ptr;
 
-			if (waitable->wait_type() == waitable_t::type_acceptor_stop) {
-				char buf[256];
-				size_t ok_bytes;
+			if (waitable->wait_type() == waitable_t::type_signal) {
+				bool exit;
 
-				while (true) {
-					if (!this->m_stop_sock[0].recv(buf, sizeof(buf), &ok_bytes)) {
-						break;
-					}
+				ret = this->recv_signal_sock_i(&exit);
+				if (!ret || exit) {
+					goto clean;
 				}
-
-				ret.set_ok();
-				goto clean;
 			} else if (waitable->wait_type() == waitable_t::type_listen) {
 				auto listen = (listen_t*) waitable;
 
@@ -407,11 +409,6 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 
 clean:
 
-	if (signal_registered) {
-		signal_manager_t::instance()->remove(this->m_stop_signals, this);
-		signal_registered = false;
-	}
-
 	// Trigger "on_disconnected" event for each existing connection.
 	used_list.for_each([handler](conn_t* c) {
 		handler->on_disconnected(c);
@@ -426,7 +423,15 @@ clean:
 	}
 
 	epoll.close();
-	this->close_stop_sock_i();
+	this->close_signal_sock_i();
+
+	// Kill all process workers.
+	this->m_process_pool.kill_children();
+
+	if (signal_registered) {
+		signal_manager_t::instance()->remove(hook_signals, this);
+		signal_registered = false;
+	}
 
 	return ret;
 }
@@ -439,29 +444,26 @@ err_t acceptor_t::run_tcp(const conn_event_adapter_t::on_received_t& recv) {
 }
 
 err_t acceptor_t::stop() {
-	return this->stop_i(0);
+	return this->send_signal_sock_i(SIGTERM);
 }
 
-void acceptor_t::on_signal(int signum) {
-	this->stop_i(signum);
-}
+void acceptor_t::on_signalled(int signum) {
+	switch (signum) {
+	case SIGCHLD:
+		while (true) {
+			int status;
+			const auto pid = waitpid(-1, &status, WNOHANG);
+			if (pid > 0) {
+				this->m_process_pool.on_terminated(pid);
+			} else {
+				break;
+			}
+		}
+		break;
 
-err_t acceptor_t::stop_i(int signum) {
-	err_t ret;
-
-	// Lock.
-	this->m_stop_sock_mutex.lock();
-
-	if (this->m_stop_sock[1].opened()) {
-		size_t ok_bytes;
-
-		ret = this->m_stop_sock[1].send(&signum, sizeof(signum), &ok_bytes);
+	default:
+		this->send_signal_sock_i(signum);
 	}
-
-	// Unlock.
-	this->m_stop_sock_mutex.unlock();
-
-	return ret;
 }
 
 err_t acceptor_t::epoll_set_i(fd_t epoll, socket_t sock,
@@ -526,38 +528,88 @@ err_t acceptor_t::loop_send_i(conn_event_t* handler, conn_t* conn) {
 	return ret;
 }
 
-err_t acceptor_t::create_stop_sock_i() {
+err_t acceptor_t::create_signal_sock_i() {
 	err_t ret;
 	int fd[2];
 
 	// Lock.
-	this->m_stop_sock_mutex.lock();
+	this->m_signal_sock_mutex.lock();
 
-	assert(this->m_stop_sock[0].closed());
-	assert(this->m_stop_sock[1].closed());
+	assert(this->m_signal_sock[0].closed());
+	assert(this->m_signal_sock[1].closed());
 
 	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0, fd) == -1) {
 		ret = err_t::current();
 	} else {
-		this->m_stop_sock[0] = fd[0];
-		this->m_stop_sock[1] = fd[1];
+		this->m_signal_sock[0] = fd[0];
+		this->m_signal_sock[1] = fd[1];
 	}
 
 	// Unlock.
-	this->m_stop_sock_mutex.unlock();
+	this->m_signal_sock_mutex.unlock();
 
 	return ret;
 }
 
-void acceptor_t::close_stop_sock_i() {
+void acceptor_t::close_signal_sock_i() {
 	// Lock.
-	this->m_stop_sock_mutex.lock();
+	this->m_signal_sock_mutex.lock();
 
-	this->m_stop_sock[0].close();
-	this->m_stop_sock[1].close();
+	this->m_signal_sock[0].close();
+	this->m_signal_sock[1].close();
 
 	// Unlock.
-	this->m_stop_sock_mutex.unlock();
+	this->m_signal_sock_mutex.unlock();
+}
+
+err_t acceptor_t::recv_signal_sock_i(bool* exit) {
+	uint8_t buf[256];
+	size_t ok_bytes;
+
+	assert(m_signal_sock[0].opened());
+	assert(exit != 0);
+
+	// Clear content.
+	*exit = false;
+
+	while (true) {
+		auto ret = this->m_signal_sock[0].recv(buf, sizeof(buf), &ok_bytes);
+		if (!ret) {
+			if (ret == EAGAIN || ret == EWOULDBLOCK) {
+				ret.set_ok();
+			}
+
+			return ret;
+		}
+
+		for (size_t i = 0; i < ok_bytes; ++i) {
+			if (buf[i] == SIGINT || buf[i] == SIGTERM) {
+				*exit = true;
+				return err_t();
+			}
+		}
+	}
+
+	return err_t();
+}
+
+err_t acceptor_t::send_signal_sock_i(int signum) {
+	err_t ret;
+
+	// Lock.
+	this->m_signal_sock_mutex.lock();
+
+	if (this->m_signal_sock[1].opened()) {
+		size_t ok_bytes;
+		const uint8_t data(signum);
+
+		ret = this->m_signal_sock[1].send(&data, sizeof(data), &ok_bytes);
+	}
+
+	// Unlock.
+	this->m_signal_sock_mutex.unlock();
+
+	return ret;
 }
 
 

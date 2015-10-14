@@ -193,12 +193,13 @@ int main(int argc, char* argv[]) {
 		return 1;
 	}
 
-	acceptor.stop_signals({SIGTERM, SIGINT});
-
 	const auto binds(acceptor.binds());
 	for (auto it = binds.cbegin(); it != binds.cend(); ++it) {
 		std::cout << "Listen-> " << (*it).first << ":" << (*it).second << std::endl;
 	}
+
+	// Totally three process workers.
+	acceptor.process_number(3);
 
 	//my_event_handler_t handler;
 	//ret = acceptor.run_tcp(&handler);
@@ -212,12 +213,14 @@ int main(int argc, char* argv[]) {
 		return 0;
 	});
 
-	if (!ret) {
-		std::cout << "acceptor::run() failed. " << ret << std::endl;
-		return 1;
-	}
+	if (!acceptor.child_process()) {
+		if (!ret) {
+			std::cout << "acceptor::run() failed. " << ret << std::endl;
+			return 1;
+		}
 
-	std::cout << "TCP Service exited gracefully." << std::endl;
+		std::cout << "TCP Service exited gracefully." << std::endl;
+	}
 
 	return 0;
 }

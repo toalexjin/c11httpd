@@ -13,6 +13,7 @@
 #include "c11httpd/err.h"
 #include "c11httpd/link.h"
 #include "c11httpd/listen.h"
+#include "c11httpd/process_pool.h"
 #include "c11httpd/signal_event.h"
 #include "c11httpd/socket.h"
 #include "c11httpd/waitable.h"
@@ -23,6 +24,7 @@
 #include <utility>
 #include <vector>
 #include <functional>
+#include <set>
 
 
 namespace c11httpd {
@@ -78,14 +80,20 @@ public:
 	// Get all listening ports.
 	std::vector<std::pair<std::string, uint16_t>> binds() const;
 
-	// Which Linux signals could stop the service.
-	const std::vector<int>& stop_signals() {
-		return this->m_stop_signals;
+	// Get number of process workers (including current main process).
+	int process_number() const {
+		return this->m_process_number;
 	}
 
-	// Which Linux signals could stop the service.
-	void stop_signals(const std::vector<int>& stop_signals) {
-		this->m_stop_signals = stop_signals;
+	// Set number of process workers (including current main process).
+	void process_number(int process_number) {
+		assert(process_number >= 1);
+		this->m_process_number = process_number;
+	}
+
+	// Return true if it's child process worker.
+	bool child_process() const {
+		return this->m_process_pool.child_process();
 	}
 
 	// Run TCP server service.
@@ -99,11 +107,11 @@ public:
 	// Stop the service.
 	//
 	// Note that this function could be called from another thread
-	// triggered by Linux signal.
+	// or triggered by Linux signal.
 	err_t stop();
 
 	// Triggered when a Linux signal is received.
-	virtual void on_signal(int signum);
+	virtual void on_signalled(int signum);
 
 private:
 	// Remove copy constructor, and operator=().
@@ -111,19 +119,21 @@ private:
 	acceptor_t& operator=(const acceptor_t&) = delete;
 
 private:
-	err_t stop_i(int signum);
 	err_t epoll_set_i(fd_t epoll, socket_t sock, waitable_t* waitable, int op, uint32_t events);
 	err_t epoll_del_i(fd_t epoll, socket_t sock);
 	void add_free_conn_i(link_t<conn_t>* free_list, int* free_count, conn_t* conn);
 	err_t loop_send_i(conn_event_t* handler, conn_t* conn);
-	err_t create_stop_sock_i();
-	void close_stop_sock_i();
+	err_t create_signal_sock_i();
+	void close_signal_sock_i();
+	err_t recv_signal_sock_i(bool* exit);
+	err_t send_signal_sock_i(int signum);
 
 private:
 	std::vector<std::unique_ptr<listen_t>> m_listens;
-	std::vector<int> m_stop_signals;
-	std::recursive_mutex m_stop_sock_mutex;
-	socket_t m_stop_sock[2];
+	process_pool_t m_process_pool;
+	std::recursive_mutex m_signal_sock_mutex;
+	socket_t m_signal_sock[2];
+	int m_process_number;
 	int m_backlog;
 	int m_max_events;
 	int m_max_free_conn;

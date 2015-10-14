@@ -33,12 +33,9 @@ c11httpd::acceptor_t acceptor;
 // Listen to TCP port 2000 (ipv4 & ipv6), 2001 (ipv4), 2002 (ipv6).
 acceptor.bind({{"", 2000}, {"0.0.0.0", 2001}, {"::", 2002}});
 
-// Stop the service when specified Linux signals are received.
-acceptor.stop_signals({SIGTERM, SIGINT});
-
-// Create several worker processes. All of them listen to
-// the same TCP ports and receive client requests.
-acceptor.create_process_worker(5);
+// Totally 5 process workers (including main process).
+// All of them listen to the same TCP ports and receive client requests.
+acceptor.process_number(5);
 
 // Run TCP service.
 acceptor.run_tcp([](
