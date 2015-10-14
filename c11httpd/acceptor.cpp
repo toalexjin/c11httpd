@@ -431,6 +431,13 @@ clean:
 	return ret;
 }
 
+err_t acceptor_t::run_tcp(const conn_event_adapter_t::on_received_t& recv) {
+	conn_event_adapter_t adapter;
+
+	adapter.lambda_on_received(recv);
+	return this->run_tcp(&adapter);
+}
+
 err_t acceptor_t::stop() {
 	return this->stop_i(0);
 }

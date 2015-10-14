@@ -12,6 +12,7 @@
 #include "c11httpd/conn.h"
 #include "c11httpd/conn_ctx.h"
 #include "c11httpd/conn_event.h"
+#include "c11httpd/conn_event_adapter.h"
 #include "c11httpd/conn_session.h"
 #include "c11httpd/err.h"
 #include "c11httpd/fd.h"

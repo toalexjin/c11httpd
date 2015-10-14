@@ -9,6 +9,7 @@
 #include "c11httpd/pre__.h"
 #include "c11httpd/conn.h"
 #include "c11httpd/conn_event.h"
+#include "c11httpd/conn_event_adapter.h"
 #include "c11httpd/err.h"
 #include "c11httpd/link.h"
 #include "c11httpd/listen.h"
@@ -21,6 +22,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <functional>
 
 
 namespace c11httpd {
@@ -90,6 +92,9 @@ public:
 	//
 	// "handler" is used to receive & handle client connection events.
 	err_t run_tcp(conn_event_t* handler);
+
+	// Run TCP server service.
+	err_t run_tcp(const conn_event_adapter_t::on_received_t& recv);
 
 	// Stop the service.
 	//

@@ -200,8 +200,18 @@ int main(int argc, char* argv[]) {
 		std::cout << "Listen-> " << (*it).first << ":" << (*it).second << std::endl;
 	}
 
-	my_event_handler_t handler;
-	ret = acceptor.run_tcp(&handler);
+	//my_event_handler_t handler;
+	//ret = acceptor.run_tcp(&handler);
+	ret = acceptor.run_tcp([](
+			c11httpd::conn_session_t* session,
+			c11httpd::buf_t* recv_buf,
+			c11httpd::buf_t* send_buf) -> uint32_t {
+		send_buf->push_back("[Echo From Server] ");
+		send_buf->push_back(recv_buf->front(), recv_buf->size());
+		recv_buf->clear();
+		return 0;
+	});
+
 	if (!ret) {
 		std::cout << "acceptor::run() failed. " << ret << std::endl;
 		return 1;
