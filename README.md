@@ -66,6 +66,6 @@ acceptor.run_tcp([](
 
 ## Build
 
-1. `make`: Output files go to **/exe** and **/obj**.
+1. `make`: Generate **/obj/c11httpd.a**, **/exe/testtcp**, **/exe/testhttp**.
 2. `make clean`: Remove all output files.
 

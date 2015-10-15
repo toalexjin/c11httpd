@@ -3,27 +3,38 @@ CPPFLAGS_RELEASE=-Wall -I. -std=c++11 -DNDEBUG -O3
 CPPFLAGS=$(CPPFLAGS_DEBUG)
 LDFLAGS=-Wall
 
-C11HTTPD_EXE=exe/c11httpd
+C11HTTPD_LIB=obj/c11httpd.a
 C11HTTPD_HEADERS=$(wildcard c11httpd/*.h)
-DAEMON_HEADERS=$(wildcard main/*.h)
-SOURCE_FILES=$(wildcard c11httpd/*.cpp daemon/*.cpp)
-OBJECT_FILES=$(patsubst %.cpp,obj/%.o,$(SOURCE_FILES))
+C11HTTPD_SOURCES=$(wildcard c11httpd/*.cpp daemon/*.cpp)
+C11HTTPD_OBJECTS=$(patsubst %.cpp,obj/%.o,$(C11HTTPD_SOURCES))
 
-all: c11httpd
+TESTTCP_EXE=exe/testtcp
+TESTTCP_HEADERS=$(wildcard testtcp/*.h)
+TESTTCP_SOURCES=$(wildcard testtcp/*.cpp)
+TESTTCP_OBJECTS=$(patsubst %.cpp,obj/%.o,$(TESTTCP_SOURCES))
 
-c11httpd: dirs $(OBJECT_FILES)
-	g++ $(LDFLAGS) -o $(C11HTTPD_EXE) $(OBJECT_FILES)
+all: c11httpd testtcp
+
+c11httpd: c11httpd_dir $(C11HTTPD_OBJECTS)
+	rm -f $(C11HTTPD_LIB)
+	ar cr $(C11HTTPD_LIB) $(C11HTTPD_OBJECTS)
+
+testtcp: c11httpd testtcp_dir $(TESTTCP_OBJECTS)
+	rm -f $(TESTTCP_EXE)
+	g++ $(LDFLAGS) -o $(TESTTCP_EXE) $(TESTTCP_OBJECTS) $(C11HTTPD_LIB)
 
 obj/c11httpd/%.o: c11httpd/%.cpp $(C11HTTPD_HEADERS)
 	g++ $(CPPFLAGS) -c $< -o $@
 
-obj/daemon/%.o: daemon/%.cpp $(C11HTTPD_HEADERS) $(DAEMON_HEADERS)
+obj/testtcp/%.o: testtcp/%.cpp $(C11HTTPD_HEADERS) $(TESTTCP_HEADERS)
 	g++ $(CPPFLAGS) -c $< -o $@
 
-dirs:
-	mkdir -p exe
+c11httpd_dir:
 	mkdir -p obj/c11httpd
-	mkdir -p obj/daemon
+
+testtcp_dir:
+	mkdir -p exe
+	mkdir -p obj/testtcp
 
 clean:
 	rm -rf exe obj
@@ -33,10 +44,12 @@ echo:
 	@echo "CPPFLAGS_RELEASE="$(CPPFLAGS_RELEASE)
 	@echo "CPPFLAGS="$(CPPFLAGS)
 	@echo "LDFLAGS="$(LDFLAGS)
-	@echo "C11HTTPD_EXE="$(C11HTTPD_EXE)
+	@echo "C11HTTPD_LIB="$(C11HTTPD_LIB)
 	@echo "C11HTTPD_HEADERS="$(C11HTTPD_HEADERS)
-	@echo "DAEMON_HEADERS="$(DAEMON_HEADERS)
-	@echo "SOURCE_FILES="$(SOURCE_FILES)
-	@echo "OBJECT_FILES="$(OBJECT_FILES)
-
+	@echo "C11HTTPD_SOURCES="$(C11HTTPD_SOURCES)
+	@echo "C11HTTPD_OBJECTS="$(C11HTTPD_OBJECTS)
+	@echo "TESTTCP_EXE="$(TESTTCP_EXE)
+	@echo "TESTTCP_HEADERS="$(TESTTCP_HEADERS)
+	@echo "TESTTCP_SOURCES="$(TESTTCP_SOURCES)
+	@echo "TESTTCP_OBJECTS="$(TESTTCP_OBJECTS)
 
