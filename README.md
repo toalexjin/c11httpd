@@ -12,7 +12,7 @@ there are still two pending issues:
   dispatch incoming requests to different GET/POST/PUT/DELETE routines
   that you implemented. There might be a 3-party MVC plugin library available
   for these httpd projects, but you have to study and it's not a all-in-one
-  solution, which might cause debug harder.
+  solution, which might make debug harder.
 - If your program offers TCP service (or RESTFul service) as well as some other
   services together, you could not use these httpd projects because they are
   not a library that could be seamlessly integrated into your program.
@@ -35,7 +35,7 @@ there are still two pending issues:
 ## Design Concepts
 
 - **Easy-To-Use**: c11httpd enables you to create a TCP service (or RESTFul service)
-  with just a few lines of code (see below **Examples** section).
+  with a few lines of code (see below **Examples** section).
 - **High Performance**: c11httpd could support over 10,000 concurrent connections.
   Besides, although c11httpd is written in C++, it does not create C++ objects
   arbitrarily, which might bring performance issue. For instance, c11httpd uses
@@ -128,7 +128,8 @@ public:
 	virtual void on_disconnected(c11httpd::conn_session_t* session) {
 		auto ctx = (my_ctx_t*) session->get_ctx();
 
-		std::cout << session->ip() << ":" << session->port() << " was disconnected." << std::endl;
+		std::cout << session->ip() << ":" << session->port()
+			<< " was disconnected." << std::endl;
 		std::cout << "Login id will be recycled:" << ctx->login_id() << std::endl;
 	}
 
