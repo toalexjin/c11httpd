@@ -17,7 +17,10 @@ there are still two pending issues:
   services together, you could not use these httpd projects because they are
   not a library that could be seamlessly integrated into your program.
 
-**c11httpd** is for developers, not for administrators. **Features**:
+## Goals and Features
+
+**c11httpd** is for developers, not for administrators.
+
 - Enables you to create a TCP service (or RESTFul service) in your existing
   program quickly. Your program just needs to handle input & output,
   does not need to know anything about socket, ipv4 & ipv6, and does not
@@ -26,7 +29,7 @@ there are still two pending issues:
   Linux epoll & aio (same as **Nginx**, **Lighttpd**).
 - Native worker process pool support (I prefer process to thread because
   it's more robust). With it, you could create several worker processes ahead
-  waiting for incoming requests. If any of them died, c11httpd would restart
+  waiting for incoming requests. If any of them died, **c11httpd** would restart
   it automatically. Furthermore, you could bind each worker process to each
   CPU core to get a better performance.
 - Offers a simple RESTFul MVC framework, enables you to easily dispatch
@@ -34,8 +37,9 @@ there are still two pending issues:
 
 ## Design Concepts
 
-- **Easy-To-Use**: c11httpd enables you to create a TCP service (or RESTFul service)
-  with a few lines of code (see below **Examples** section).
+- **Easy-To-Use**: c11httpd offers a very simple interface, you could create
+  a TCP service (or RESTFul service) with only a few lines of code
+  (see below **Examples** section).
 - **High Performance**: c11httpd could support over 10,000 concurrent connections.
   Besides, although c11httpd is written in C++, it does not create C++ objects
   arbitrarily, which might bring performance issue. For instance, c11httpd uses
@@ -55,28 +59,34 @@ there are still two pending issues:
 ### How to create a simple echo TCP service:
 
 ```C++
-c11httpd::acceptor_t acceptor;
+int main() {
+	c11httpd::acceptor_t acceptor;
 
-// Listen to TCP port 2000 (ipv4 & ipv6), 2001 (ipv4), 2002 (ipv6).
-acceptor.bind({{"", 2000}, {"0.0.0.0", 2001}, {"::", 2002}});
+	// Listen to TCP port 2000 (ipv4 & ipv6), 2001 (ipv4), 2002 (ipv6).
+	acceptor.bind({{"", 2000}, {"0.0.0.0", 2001}, {"::", 2002}});
 
-// Create 4 worker processes. All of them listen to the same TCP ports
-// and receive client incoming requests.
-//
-// The main process is pure management process, will restart worker processes if they died.
-acceptor.worker_processes(4);
+	// Create 4 worker processes. All of them listen to
+	// the same TCP ports and receive client incoming requests.
+	//
+	// The main process is pure management process,
+	// will restart worker processes if they died.
+	acceptor.worker_processes(4);
 
-// Run TCP service.
-acceptor.run_tcp([](
-	c11httpd::conn_session_t* session,
-	c11httpd::buf_t* recv_buf,
-	c11httpd::buf_t* send_buf) -> uint32_t {
+	// Run TCP service.
+	//
+	// If Linux signal SIGINT or SIGTERM is recevied, the service will quit.
+	acceptor.run_tcp([](
+		c11httpd::conn_session_t* session,
+		c11httpd::buf_t* recv_buf,
+		c11httpd::buf_t* send_buf) -> uint32_t {
 
-	send_buf->push_back("[Echo From Server] ");
-	send_buf->push_back(recv_buf->front(), recv_buf->size());
-	recv_buf->clear();
+		send_buf->push_back("[Echo From Server] ");
+		send_buf->push_back(recv_buf->front(), recv_buf->size());
+		recv_buf->clear();
+		return 0;
+	});
 	return 0;
-});
+}
 ```
 
 ### How to create a full life-cycle TCP service:
@@ -101,6 +111,7 @@ private:
 	std::string m_login_id;
 };
 
+// My event handler.
 class my_event_handler_t : public c11httpd::conn_event_t {
 public:
 	virtual uint32_t on_connected(
@@ -116,7 +127,9 @@ public:
 		// This context object is valid until "on_disconnected" event completes.
 		auto ctx = (my_ctx_t*) session->get_ctx();
 
-		// Use utc time as login session id.
+		// Use UTC time as login session id.
+		//
+		// It's not unique, to be enhanced.
 		ctx->login_id(std::to_string(std::time(0));
 
 		*send_buf << "Hello, " << session->ip() << ":"
@@ -160,20 +173,27 @@ public:
 	}
 };
 
-c11httpd::acceptor_t acceptor;
+int main() {
+	c11httpd::acceptor_t acceptor;
 
-// Listen to TCP port 2000 (ipv4 & ipv6), 2001 (ipv4), 2002 (ipv6).
-acceptor.bind({{"", 2000}, {"0.0.0.0", 2001}, {"::", 2002}});
+	// Listen to TCP port 2000 (ipv4 & ipv6), 2001 (ipv4), 2002 (ipv6).
+	acceptor.bind({{"", 2000}, {"0.0.0.0", 2001}, {"::", 2002}});
 
-// Create 4 worker processes. All of them listen to the same TCP ports
-// and receive client incoming requests.
-//
-// The main process is pure management process, will restart worker processes if they died.
-acceptor.worker_processes(4);
+	// Create 4 worker processes. All of them listen to
+	// the same TCP ports and receive client incoming requests.
+	//
+	// The main process is pure management process,
+	// will restart worker processes if they died.
+	acceptor.worker_processes(4);
 
-// Run TCP service.
-my_event_handler_t handler;
-acceptor.run_tcp(&handler);
+	// Run TCP service.
+	//
+	// If Linux signal SIGINT or SIGTERM is recevied, the service will quit.
+	my_event_handler_t handler;
+	acceptor.run_tcp(&handler);
+
+	return 0;
+}
 ```
 
 - How to create a RESTFul service (**In Progress**):

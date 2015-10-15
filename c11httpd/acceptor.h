@@ -104,10 +104,13 @@ public:
 
 	// Run TCP server service.
 	//
+	// If Linux signal SIGINT or SIGTERM is received, this function will return.
 	// "handler" is used to receive & handle client connection events.
 	err_t run_tcp(conn_event_t* handler);
 
 	// Run TCP server service.
+	//
+	// If Linux signal SIGINT or SIGTERM is received, this function will return.
 	err_t run_tcp(const conn_event_adapter_t::on_received_t& recv);
 
 	// Stop the service.
