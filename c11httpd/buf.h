@@ -67,9 +67,17 @@ public:
 
 	char* back(size_t free_size);
 
-	void push_back(const void* data, size_t size);
-	void push_back(const std::string& str);
-	void push_back(const char* str);
+	buf_t& push_back(const void* data, size_t size);
+	buf_t& push_back(const std::string& str);
+	buf_t& push_back(const char* str);
+
+	buf_t& operator<<(const std::string& str) {
+		return this->push_back(str);
+	}
+
+	buf_t& operator<<(const char* str) {
+		return this->push_back(str);
+	}
 
 	void erase_front(size_t erased_size);
 	void erase_back(size_t erased_size);

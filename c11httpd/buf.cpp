@@ -41,19 +41,25 @@ char* buf_t::back(size_t free_size) {
 	return this->m_buf + this->m_size;
 }
 
-void buf_t::push_back(const void* data, size_t size) {
+buf_t& buf_t::push_back(const void* data, size_t size) {
 	std::memcpy(this->back(size), data, size);
 	this->m_size += size;
+
+	return *this;
 }
 
-void buf_t::push_back(const std::string& str) {
+buf_t& buf_t::push_back(const std::string& str) {
 	this->push_back(str.c_str(), str.size());
+
+	return *this;
 }
 
-void buf_t::push_back(const char* str) {
+buf_t& buf_t::push_back(const char* str) {
 	if (str != 0) {
 		this->push_back(str, std::strlen(str));
 	}
+
+	return *this;
 }
 
 void buf_t::erase_front(size_t erased_size) {

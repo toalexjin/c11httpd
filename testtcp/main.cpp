@@ -40,11 +40,9 @@ public:
 	}
 
 	void next(c11httpd::buf_t* send_buf) {
-		send_buf->push_back("(");
-		send_buf->push_back(std::to_string(this->m_index + 1));
-		send_buf->push_back("@");
-		send_buf->push_back(this->m_str);
-		send_buf->push_back(")\r\n");
+		*send_buf << "("
+			<< std::to_string(this->m_index + 1)
+			<< "@" << this->m_str << ")\r\n";
 
 		this->m_index ++;
 	}
@@ -130,11 +128,8 @@ uint32_t my_event_handler_t::on_connected(c11httpd::conn_session_t* session,
 
 	std::cout << *session << " was connected." << std::endl;
 
-	send_buf->push_back("=> hello, ");
-	send_buf->push_back(session->ip());
-	send_buf->push_back(":");
-	send_buf->push_back(std::to_string(session->port()));
-	send_buf->push_back("!\r\n");
+	*send_buf << "=> hello, " << session->ip()
+			<< ":" << std::to_string(session->port()) << "!\r\n";
 
 	return 0;
 }
@@ -201,9 +196,9 @@ int main(int argc, char* argv[]) {
 	// Totally three worker processes.
 	acceptor.worker_processes(1);
 
-	//my_event_handler_t handler;
-	//ret = acceptor.run_tcp(&handler);
-	ret = acceptor.run_tcp([](
+	my_event_handler_t handler;
+	ret = acceptor.run_tcp(&handler);
+	/*ret = acceptor.run_tcp([](
 			c11httpd::conn_session_t* session,
 			c11httpd::buf_t* recv_buf,
 			c11httpd::buf_t* send_buf) -> uint32_t {
@@ -212,6 +207,7 @@ int main(int argc, char* argv[]) {
 		recv_buf->clear();
 		return 0;
 	});
+*/
 
 	if (acceptor.main_process()) {
 		if (!ret) {
