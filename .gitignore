@@ -14,4 +14,5 @@ a.out
 .cproject
 .project
 .settings
+.DS_Store
 

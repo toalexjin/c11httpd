@@ -1,6 +1,6 @@
 # c11httpd
 
-A Lightweight, Easy-To-Use, High-Performance httpd library in C++ C11.
+A lightweight, easy-to-use, high-performance httpd library in C++ C11.
 
 There are several quite famous httpd projects like **Apache**, **Nginx** and
 **Lighttpd**. They are in C, pure web server daemon, and offer high performance.
@@ -8,51 +8,50 @@ As a result, their plugin module interfaces are not friendly. If you want to
 implement a C/C++ RESTFul service based on them, you need to take a long time
 to study how to write a plugin module. Even though you know how to do it,
 there are still two pending issues:
-- There is no native MVC framework support. You have to parse URL,
+- If your program offers TCP service (or RESTFul service) as well as some
+  other services, you could not use these httpd projects because they are
+  not a library that could be seamlessly integrated into your program.
+- There is no native RESTFul framework support. You have to parse URI,
   dispatch incoming requests to different GET/POST/PUT/DELETE routines
-  that you implemented. There might be a 3-party MVC plugin library available
+  that you implemented. There might be a 3-party RESTFul plugin library available
   for these httpd projects, but you have to study and it's not a all-in-one
   solution, which might make debug harder.
-- If your program offers TCP service (or RESTFul service) as well as some other
-  services, you could not use these httpd projects because they are
-  not a library that could be seamlessly integrated into your program.
 
-## Goals and Features
+## Features and Design Concepts
 
 **c11httpd** is for developers, not for administrators.
 
-- Enables you to create a TCP service (or RESTFul service) in your existing
-  program quickly. Your program just needs to handle input & output,
-  does not need to know anything about socket, ipv4 & ipv6, and does not
-  require a 3-party web server to work, very clean.
-- Supports over 10,000 concurrent connections because it leverages
-  Linux epoll & aio (same as **Nginx**, **Lighttpd**).
-- Native worker process pool support (I prefer process to thread because
-  it's more robust). With it, you could create several worker processes ahead
-  waiting for incoming requests. If any of them died, **c11httpd** would restart
-  it automatically. Furthermore, you could bind each worker process to each
-  CPU core to get a better performance.
-- Offers a simple RESTFul MVC framework, enables you to easily dispatch
-  incoming URL requests to different GET/POST/PUT/DELETE routines (`In Progress`).
-
-## Design Concepts
-
 - **Easy-To-Use**: c11httpd offers a very simple interface, you could create
   a TCP service (or RESTFul service) with only a few lines of code
-  (see below **Examples** section).
-- **High Performance**: c11httpd could support over 10,000 concurrent connections.
-  Besides, although c11httpd is written in C++, it does not create C++ objects
+  (see below **Examples** section). Your program does not need to know anything
+  about socket, ipv4 & ipv6, and does not require a 3-party web server to work.
+  The entire solution is very clean.
+- **High Performance**: c11httpd supports over 10,000 concurrent connections
+  as it leverages Linux epoll & aio technologies (same as **Nginx**, **Lighttpd**).
+  Although the library is written in C++, it does not create C++ objects
   arbitrarily, which might bring performance issue. For instance, c11httpd uses
   two simple C-style doubly linked lists to save active & free connections. it's
   trying to achieve a balance between C++ OOP/Meta-programming & C data structure.
-- **Simple Implementation**: Some C++ libraries (e.g. **boost**) are too crazy,
-  use meta-programming (C++ Template) too much, although in some cases
-  there is a better C-style solution. That's probably why **Linus Torvalds**
-  dislikes C++ language. Meta-programming looks very cool (I used to like it
-  very much :sleeping:), but to be honest, it might bring troubles:
+- **Worker Process Pool**: c11httpd has native worker process pool support
+  (I prefer process to thread because it's more robust). With it, you could
+  create several worker processes ahead waiting for incoming requests. If any
+  of them died, the library would restart it automatically. Furthermore,
+  you could bind each worker process to each CPU core to get a better performance.
+- **RESTFul Framework**: c11httpd offers a simple RESTFul framework, you could
+  easily dispatch incoming requests to different GET/POST/PUT/DELETE
+  routines (`In Progress`).
+- **Virtual Host**: c11httpd enables you to create several virtual hosts
+  running on the same TCP ports (`In Progress`).
+- **Simple Implementation**: c11httpd's interface and implementation are simple,
+  use meta-programming (C++ Template) but does not widely use it. This is
+  different from most of modern C++ libraries (e.g. **boost**), which are
+  almost pure C++ Template Libraries. C++ Template is very cool (I used to be a
+  fan of it :sleeping:), but to be honest, it might bring following troubles
+  (Btw, Probably because of C++ Template, **Linus Torvalds** dislikes C++):
    - Build failure error message is not easy-to-read.
    - Not easy to debug code with gdb.
-   - Team members might have trouble to understand the code.
+   - Team members and library users might have trouble to understand the code,
+     bug fix, tech support, ...
 
 ## Build Requirements
 
@@ -280,7 +279,7 @@ int main() {
 		return 0;
 	});
 
-	// Run TCP service.
+	// Run RESTFul service.
 	//
 	// If Linux signal SIGINT or SIGTERM is recevied, the service will quit.
 	acceptor.run_http({&c1, &c2});
