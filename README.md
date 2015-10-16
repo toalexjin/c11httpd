@@ -1,6 +1,6 @@
 # c11httpd
 
-A Lightweight Easy-To-Use High-Performance httpd library in C++ C11.
+A Lightweight, Easy-To-Use, High-Performance httpd library in C++ C11.
 
 There are several quite famous httpd projects like **Apache**, **Nginx** and
 **Lighttpd**. They are in C, pure web server daemon, and offer high performance.
