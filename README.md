@@ -218,9 +218,9 @@ int main() {
 }
 ```
 
-- How to create a RESTFul service running on two virtual hosts (**In Progress**):
+### How to create a RESTFul service running on two virtual hosts (**In Progress**):
 
-```
+```C++
 int main() {
 	c11httpd::acceptor_t acceptor;
 
