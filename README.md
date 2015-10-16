@@ -234,7 +234,7 @@ int main() {
 	// will restart worker processes if they died.
 	acceptor.worker_processes(4);
 
-	// This controller runs on virtual host "company.net".
+	// Controller for "company.net".
 	c11httpd::rest_controller_t c1("company.net",
 		"/company", {}, {"application/json;charset=UTF-8"});
 
@@ -257,12 +257,12 @@ int main() {
 		return 0;
 	});
 
-	// This controller runs on virtual host "school.net".
-	c11httpd::rest_controller_t c1("school.net",
+	// Controller for "school.net".
+	c11httpd::rest_controller_t c2("school.net",
 		"/school", {}, {"application/json;charset=UTF-8"});
 
 	// GET "/school/student".
-	c1.add("/student", http_method_get, [](const http_request_t& request,
+	c2.add("/student", http_method_get, [](const http_request_t& request,
 		http_response_t& response, const std::vector<std::string>& variables) -> uint32_t {
 
 		// Should use a json parser to encode the string.
@@ -271,7 +271,7 @@ int main() {
 	});
 
 	// GET "/school/student/?".
-	c1.add("/student/?", http_method_get, [](const http_request_t& request,
+	c2.add("/student/?", http_method_get, [](const http_request_t& request,
 		http_response_t& response, const std::vector<std::string>& variables) -> uint32_t {
 
 		// Should use a json parser to encode the string.
