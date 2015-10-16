@@ -218,9 +218,82 @@ int main() {
 }
 ```
 
-- How to create a RESTFul service (**In Progress**):
+- How to create a RESTFul service running on two virtual hosts (**In Progress**):
 
 ```
-// Pending
+int main() {
+	c11httpd::acceptor_t acceptor;
+
+	// Listen to TCP port 2000 (ipv4 & ipv6), 2001 (ipv4), 2002 (ipv6).
+	acceptor.bind({{"", 2000}, {"0.0.0.0", 2001}, {"::", 2002}});
+
+	// Create 4 worker processes. All of them listen to
+	// the same TCP ports and receive client incoming requests.
+	//
+	// The main process is pure management process,
+	// will restart worker processes if they died.
+	acceptor.worker_processes(4);
+
+	// This controller runs on virtual host "company.net".
+	c11httpd::rest_controller_t c1("company.net",
+		"/company", {}, {"application/json;charset=UTF-8"});
+
+	// GET "/company/employee".
+	c1.add("/employee", http_method_get,
+		[](const http_request_t& request,
+			http_response_t& response,
+			const std::vector<std::string>& variables) -> uint32_t {
+
+		// Should use a json parser to encode the string.
+		response.content() << "[]";
+		return 0;
+	});
+
+	// GET "/company/employee/?".
+	c1.add("/employee/?", http_method_get,
+		[](const http_request_t& request,
+			http_response_t& response,
+			const std::vector<std::string>& variables) -> uint32_t {
+
+		// Should use a json parser to encode the string.
+		response.content() << "{\"id\":\""
+			<< variables[0] << "\",\"name\":\"Alex Jin\"}";
+		return 0;
+	});
+
+	// This controller runs on virtual host "school.net".
+	c11httpd::rest_controller_t c1("school.net",
+		"/school", {}, {"application/json;charset=UTF-8"});
+
+	// GET "/school/student".
+	c1.add("/student", http_method_get,
+		[](const http_request_t& request,
+			http_response_t& response,
+			const std::vector<std::string>& variables) -> uint32_t {
+
+		// Should use a json parser to encode the string.
+		response.content() << "[]";
+		return 0;
+	});
+
+	// GET "/school/student/?".
+	c1.add("/student/?", http_method_get,
+		[](const http_request_t& request,
+			http_response_t& response,
+			const std::vector<std::string>& variables) -> uint32_t {
+
+		// Should use a json parser to encode the string.
+		response.content() << "{\"id\":\""
+			<< variables[0] << "\",\"name\":\"Alex Jin\"}";
+		return 0;
+	});
+
+	// Run TCP service.
+	//
+	// If Linux signal SIGINT or SIGTERM is recevied, the service will quit.
+	acceptor.run_http({&c1, &c2});
+
+	return 0;
+}
 ```
 

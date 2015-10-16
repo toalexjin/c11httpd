@@ -23,17 +23,27 @@ namespace c11httpd {
 class rest_controller_t {
 public:
 	typedef std::function<uint32_t(
-		const http_request_t*,
-		http_response_t*,
-		const std::vector<std::string>& variables)
+		const http_request_t&,
+		http_response_t&,
+		const std::vector<std::string>&)
 	> routine_t;
 
 private:
 	typedef std::tuple<std::string, http_method_t, routine_t,
-			std::vector<std::string>, std::vector<std::string>> value_t;
+		std::vector<std::string>, std::vector<std::string>> value_t;
 
 public:
-	rest_controller_t() = default;
+	explicit rest_controller_t(
+		const std::string& virtual_host = std::string(),
+		const std::string& uri_root,
+		const std::vector<std::string>& consumes,
+		const std::vector<std::string>& produces
+	) : m_virtual_host(virtual_host),
+		m_uri_root(uri_root),
+		m_consumes(consumes),
+		m_produces(produces) {
+	}
+
 	virtual ~rest_controller_t() = default;
 
 	// Virtual host, e.g."www.vhost1.net".
@@ -67,7 +77,7 @@ public:
 	void add(const std::string& uri,
 		http_method_t method,
 		T* self,
-		uint32_t (T::*mem_func)(const http_request_t*, http_response_t*, const std::vector<std::string>&),
+		uint32_t (T::*mem_func)(const http_request_t&, http_response_t&, const std::vector<std::string>&),
 		const std::vector<std::string>& consumes = std::vector<std::string>(),
 		const std::vector<std::string>& produces = std::vector<std::string>()
 		) {
@@ -77,6 +87,8 @@ public:
 private:
 	std::string m_virtual_host;
 	std::string m_uri_root;
+	std::vector<std::string>& m_consumes;
+	std::vector<std::string>& m_produces;
 
 	// Keep this container flat, we will create another
 	// calculating module to dispatch request to each routine rapidly.
