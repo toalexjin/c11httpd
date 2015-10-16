@@ -1,9 +1,9 @@
 # c11httpd
 
-A lightweight httpd library in C++ C11.
+A Lightweight Easy-To-Use High-Performance httpd library in C++ C11.
 
-There are several quite famous C/C++ httpd projects like **Apache**, **Nginx**
-and **Lighttpd**. They are in C, pure web server daemon, and offer high performance.
+There are several quite famous httpd projects like **Apache**, **Nginx** and
+**Lighttpd**. They are in C, pure web server daemon, and offer high performance.
 As a result, their plugin module interfaces are not friendly. If you want to
 implement a C/C++ RESTFul service based on them, you need to take a long time
 to study how to write a plugin module. Even though you know how to do it,
@@ -14,7 +14,7 @@ there are still two pending issues:
   for these httpd projects, but you have to study and it's not a all-in-one
   solution, which might make debug harder.
 - If your program offers TCP service (or RESTFul service) as well as some other
-  services together, you could not use these httpd projects because they are
+  services, you could not use these httpd projects because they are
   not a library that could be seamlessly integrated into your program.
 
 ## Goals and Features
@@ -33,7 +33,7 @@ there are still two pending issues:
   it automatically. Furthermore, you could bind each worker process to each
   CPU core to get a better performance.
 - Offers a simple RESTFul MVC framework, enables you to easily dispatch
-  incoming URL requests to different GET/POST/PUT/DELETE routines (**In Progress**).
+  incoming URL requests to different GET/POST/PUT/DELETE routines (`In Progress`).
 
 ## Design Concepts
 
@@ -92,7 +92,7 @@ int main() {
 		c11httpd::buf_t* send_buf) -> uint32_t {
 
 		// Add an echo prefix.
-		*send_buf << "[Echo]" << *recv_buf;
+		*send_buf << "[Echo] " << *recv_buf;
 
 		// We have processed this message, let's clear recv buffer
 		// so that the data will not come back again.
@@ -171,7 +171,7 @@ public:
 		c11httpd::buf_t* send_buf) {
 
 		// Add an echo prefix.
-		*send_buf << "[Echo]" << *recv_buf;
+		*send_buf << "[Echo] " << *recv_buf;
 
 		// We have processed this message, let's clear recv buffer
 		// so that the data will not come back again.
@@ -218,7 +218,7 @@ int main() {
 }
 ```
 
-### How to create a RESTFul service running on two virtual hosts (**In Progress**):
+### How to create a RESTFul service running on two virtual hosts (`In Progress`):
 
 ```C++
 int main() {
@@ -239,10 +239,8 @@ int main() {
 		"/company", {}, {"application/json;charset=UTF-8"});
 
 	// GET "/company/employee".
-	c1.add("/employee", http_method_get,
-		[](const http_request_t& request,
-			http_response_t& response,
-			const std::vector<std::string>& variables) -> uint32_t {
+	c1.add("/employee", http_method_get, [](const http_request_t& request,
+		http_response_t& response, const std::vector<std::string>& variables) -> uint32_t {
 
 		// Should use a json parser to encode the string.
 		response.content() << "[]";
@@ -250,10 +248,8 @@ int main() {
 	});
 
 	// GET "/company/employee/?".
-	c1.add("/employee/?", http_method_get,
-		[](const http_request_t& request,
-			http_response_t& response,
-			const std::vector<std::string>& variables) -> uint32_t {
+	c1.add("/employee/?", http_method_get, [](const http_request_t& request,
+		http_response_t& response, const std::vector<std::string>& variables) -> uint32_t {
 
 		// Should use a json parser to encode the string.
 		response.content() << "{\"id\":\""
@@ -266,10 +262,8 @@ int main() {
 		"/school", {}, {"application/json;charset=UTF-8"});
 
 	// GET "/school/student".
-	c1.add("/student", http_method_get,
-		[](const http_request_t& request,
-			http_response_t& response,
-			const std::vector<std::string>& variables) -> uint32_t {
+	c1.add("/student", http_method_get, [](const http_request_t& request,
+		http_response_t& response, const std::vector<std::string>& variables) -> uint32_t {
 
 		// Should use a json parser to encode the string.
 		response.content() << "[]";
@@ -277,10 +271,8 @@ int main() {
 	});
 
 	// GET "/school/student/?".
-	c1.add("/student/?", http_method_get,
-		[](const http_request_t& request,
-			http_response_t& response,
-			const std::vector<std::string>& variables) -> uint32_t {
+	c1.add("/student/?", http_method_get, [](const http_request_t& request,
+		http_response_t& response, const std::vector<std::string>& variables) -> uint32_t {
 
 		// Should use a json parser to encode the string.
 		response.content() << "{\"id\":\""
