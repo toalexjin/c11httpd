@@ -448,6 +448,19 @@ err_t acceptor_t::run_tcp(const conn_event_adapter_t::on_received_t& recv) {
 	return this->run_tcp(&adapter);
 }
 
+err_t run_http(rest_controller_t* controller) {
+	assert(controller != 0);
+	(void) &controller;
+
+	return EPERM;
+}
+
+err_t run_http(const std::vector<rest_controller_t*>& controllers) {
+	(void) &controllers;
+
+	return EPERM;
+}
+
 err_t acceptor_t::stop() {
 	return this->send_signal_sock_i(SIGTERM);
 }
