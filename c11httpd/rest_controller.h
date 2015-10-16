@@ -35,9 +35,9 @@ private:
 public:
 	explicit rest_controller_t(
 		const std::string& virtual_host = std::string(),
-		const std::string& uri_root,
-		const std::vector<std::string>& consumes,
-		const std::vector<std::string>& produces
+		const std::string& uri_root = std::string(),
+		const std::vector<std::string>& consumes = std::vector<std::string>(),
+		const std::vector<std::string>& produces = std::vector<std::string>()
 	) : m_virtual_host(virtual_host),
 		m_uri_root(uri_root),
 		m_consumes(consumes),
@@ -87,8 +87,8 @@ public:
 private:
 	std::string m_virtual_host;
 	std::string m_uri_root;
-	std::vector<std::string>& m_consumes;
-	std::vector<std::string>& m_produces;
+	std::vector<std::string> m_consumes;
+	std::vector<std::string> m_produces;
 
 	// Keep this container flat, we will create another
 	// calculating module to dispatch request to each routine rapidly.
