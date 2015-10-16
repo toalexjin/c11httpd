@@ -70,6 +70,7 @@ public:
 	buf_t& push_back(const void* data, size_t size);
 	buf_t& push_back(const std::string& str);
 	buf_t& push_back(const char* str);
+	buf_t& push_back(const buf_t& another);
 
 	buf_t& operator<<(const std::string& str) {
 		return this->push_back(str);
@@ -77,6 +78,10 @@ public:
 
 	buf_t& operator<<(const char* str) {
 		return this->push_back(str);
+	}
+
+	buf_t& operator<<(const buf_t& another) {
+		return this->push_back(another);
 	}
 
 	void erase_front(size_t erased_size);

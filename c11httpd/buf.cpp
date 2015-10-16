@@ -62,6 +62,10 @@ buf_t& buf_t::push_back(const char* str) {
 	return *this;
 }
 
+buf_t& buf_t::push_back(const buf_t& another) {
+	return this->push_back(another.front(), another.size());
+}
+
 void buf_t::erase_front(size_t erased_size) {
 	assert(erased_size <= this->m_size);
 

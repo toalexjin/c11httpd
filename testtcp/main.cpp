@@ -176,8 +176,18 @@ uint32_t my_event_handler_t::get_more_data(c11httpd::conn_session_t* session,
 	return ctx->more() ? c11httpd::event_result_more_data : 0;
 }
 
+static void help() {
+	std::cout << "Usage: testtcp echo" << std::endl;
+	std::cout << "       testtcp repeat" << std::endl;
+	std::cout << std::endl;
+}
 
 int main(int argc, char* argv[]) {
+
+	if (argc != 2) {
+		help();
+		return 1;
+	}
 
 	c11httpd::err_t ret;
 	c11httpd::acceptor_t acceptor;
@@ -196,18 +206,22 @@ int main(int argc, char* argv[]) {
 	// Totally three worker processes.
 	acceptor.worker_processes(1);
 
-	my_event_handler_t handler;
-	ret = acceptor.run_tcp(&handler);
-	/*ret = acceptor.run_tcp([](
-			c11httpd::conn_session_t* session,
-			c11httpd::buf_t* recv_buf,
-			c11httpd::buf_t* send_buf) -> uint32_t {
-		send_buf->push_back("[Echo From Server] ");
-		send_buf->push_back(recv_buf->front(), recv_buf->size());
-		recv_buf->clear();
-		return 0;
-	});
-*/
+	if (std::strcmp(argv[1], "echo") == 0) {
+		ret = acceptor.run_tcp([](
+				c11httpd::conn_session_t* session,
+				c11httpd::buf_t* recv_buf,
+				c11httpd::buf_t* send_buf) -> uint32_t {
+			*send_buf << "[Echo] " << *recv_buf;
+			recv_buf->clear();
+			return 0;
+		});
+	} else if (std::strcmp(argv[1], "repeat") == 0) {
+		my_event_handler_t handler;
+		ret = acceptor.run_tcp(&handler);
+	} else {
+		help();
+		return 1;
+	}
 
 	if (acceptor.main_process()) {
 		if (!ret) {

@@ -43,7 +43,7 @@ there are still two pending issues:
 - **High Performance**: c11httpd could support over 10,000 concurrent connections.
   Besides, although c11httpd is written in C++, it does not create C++ objects
   arbitrarily, which might bring performance issue. For instance, c11httpd uses
-  a simple C-style doubly linked lists to save active & free connections. it's
+  two simple C-style doubly linked lists to save active & free connections. it's
   trying to achieve a balance between C++ OOP/Meta-programming & C data structure.
 - **Simple Implementation**: Some C++ libraries (e.g. **boost**) are too crazy,
   use meta-programming (C++ Template) too much, although in some cases
@@ -53,6 +53,17 @@ there are still two pending issues:
    - Build failure error message is not easy-to-read.
    - Not easy to debug code with gdb.
    - Team members might have trouble to understand the code.
+
+## Build Requirements
+
+- The library supports Linux only because it uses some advanced Linux features.
+- **Linux kernel x86_64 2.6.27** (or above).
+- **g++ 4.8** (or above).
+
+## Build
+
+1. `make`: Generate **/obj/c11httpd.a**, **/exe/testtcp**, **/exe/testhttp**.
+2. `make clean`: Remove all output files.
 
 ## Examples
 
@@ -80,11 +91,16 @@ int main() {
 		c11httpd::buf_t* recv_buf,
 		c11httpd::buf_t* send_buf) -> uint32_t {
 
-		send_buf->push_back("[Echo From Server] ");
-		send_buf->push_back(recv_buf->front(), recv_buf->size());
+		// Add an echo prefix.
+		*send_buf << "[Echo]" << *recv_buf;
+
+		// We have processed this message, let's clear recv buffer
+		// so that the data will not come back again.
 		recv_buf->clear();
+
 		return 0;
 	});
+
 	return 0;
 }
 ```
@@ -92,7 +108,8 @@ int main() {
 ### How to create a full life-cycle TCP service:
 
 ```C++
-// My session context (is valid in the entire connection lift-cycle).
+// My session context, created in "on_connected" event
+// and released in "on_disconnected" event.
 class my_ctx_t : public c11httpd::conn_ctx_t {
 public:
 	virtual void clear() {
@@ -139,6 +156,8 @@ public:
 	}
 
 	virtual void on_disconnected(c11httpd::conn_session_t* session) {
+		// There is no need to release the context object in this routine
+		// because c11httpd library will do it after "on_disconnected" returns.
 		auto ctx = (my_ctx_t*) session->get_ctx();
 
 		std::cout << session->ip() << ":" << session->port()
@@ -151,8 +170,11 @@ public:
 		c11httpd::buf_t* recv_buf,
 		c11httpd::buf_t* send_buf) {
 
-		send_buf->push_back("[Echo From Server] ");
-		send_buf->push_back(recv_buf->front(), recv_buf->size());
+		// Add an echo prefix.
+		*send_buf << "[Echo]" << *recv_buf;
+
+		// We have processed this message, let's clear recv buffer
+		// so that the data will not come back again.
 		recv_buf->clear();
 
 		// Make "get_more_data" event be triggered.
@@ -201,15 +223,4 @@ int main() {
 ```
 // Pending
 ```
-
-## Build Requirements
-
-- The library supports Linux only because it uses some advanced Linux features.
-- **Linux kernel x86_64 2.6.27** (or above).
-- **g++ 4.8** (or above).
-
-## Build
-
-1. `make`: Generate **/obj/c11httpd.a**, **/exe/testtcp**, **/exe/testhttp**.
-2. `make clean`: Remove all output files.
 
