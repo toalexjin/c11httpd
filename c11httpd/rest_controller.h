@@ -7,14 +7,15 @@
 #pragma once
 
 #include "c11httpd/pre__.h"
+#include "c11httpd/fast_str.h"
 #include "c11httpd/http_method.h"
 #include "c11httpd/http_request.h"
 #include "c11httpd/http_response.h"
-#include <string>
 #include <functional>
-#include <vector>
-#include <tuple>
 #include <memory>
+#include <string>
+#include <tuple>
+#include <vector>
 
 
 namespace c11httpd {
@@ -76,44 +77,53 @@ private:
 // or create a sub-class inherits from this class.
 class rest_controller_t {
 public:
+	enum class result_t {
+		// The request has been fully processed
+		// and its result is saved to "response".
+		done = 0,
+
+		// The request has fatal error, no response
+		// was generated and the connection
+		// needs to be closed immediately.
+		disconnect = 1
+	};
+
+public:
 	// C routine prototype.
-	typedef uint32_t (*routine_c_t)(
-		const http_request_t&, http_response_t&,
-		const std::vector<std::string>&);
+	typedef result_t (*routine_c_t)(
+		const http_request_t&, // Input request.
+		const std::vector<fast_str_t>&, // URI placeholder values.
+		http_response_t& // Output response.
+		);
 
 	// C++ routine prototype.
 	typedef std::function<
-		uint32_t(const http_request_t&,
-		http_response_t&,
-		const std::vector<std::string>&)
+		result_t(
+			const http_request_t&, // Input request.
+			const std::vector<fast_str_t>&, // URI placeholder values.
+			http_response_t& // Output response.
+		)
 	> routine_cpp_t;
 
-private:
 	typedef details::callable_t<
-		uint32_t,
-		const http_request_t&,
-		http_response_t&,
-		const std::vector<std::string>&
+		result_t,
+		const http_request_t&, // Input request.
+		const std::vector<fast_str_t>&, // URI placeholder values.
+		http_response_t& // Output response.
 	> routine_callable_t;
 
 	typedef std::tuple<
-		std::string,
-		http_method_t,
-		std::unique_ptr<routine_callable_t>,
-		std::vector<std::string>,
-		std::vector<std::string>
-	> value_t;
+		std::string, // URI. e.g. "/company/employee/?".
+		http_method_t, // Method, e.g.GET/PUT/POST/DELETE.
+		std::unique_ptr<routine_callable_t> // Routine.
+	> api_t;
 
 public:
 	explicit rest_controller_t(
 		const std::string& virtual_host = std::string(),
-		const std::string& uri_root = std::string(),
-		const std::vector<std::string>& consumes = std::vector<std::string>(),
-		const std::vector<std::string>& produces = std::vector<std::string>()
+		const std::string& uri_root = std::string()
 	) : m_virtual_host(virtual_host),
-		m_uri_root(uri_root),
-		m_consumes(consumes),
-		m_produces(produces) {
+		m_uri_root(uri_root) {
 	}
 
 	virtual ~rest_controller_t() = default;
@@ -136,62 +146,73 @@ public:
 		this->m_uri_root = uri_root;
 	}
 
-	void add(const std::string& uri,
-		http_method_t method,
-		const routine_c_t& routine,
-		const std::vector<std::string>& consumes = std::vector<std::string>(),
-		const std::vector<std::string>& produces = std::vector<std::string>()
-		) {
-		this->m_routines.push_back(value_t(uri, method,
-			std::unique_ptr<routine_callable_t>(
-				new details::callable_c_t<
-					routine_c_t, uint32_t, const http_request_t&,
-					http_response_t&, const std::vector<std::string>&
-				>(routine)
-			), consumes, produces));
+	const std::vector<api_t>& apis() const {
+		return this->m_apis;
 	}
 
 	void add(const std::string& uri,
 		http_method_t method,
-		const routine_cpp_t& routine,
-		const std::vector<std::string>& consumes = std::vector<std::string>(),
-		const std::vector<std::string>& produces = std::vector<std::string>()
+		const routine_c_t& routine
 		) {
-		this->m_routines.push_back(value_t(uri, method,
-			std::unique_ptr<routine_callable_t>(
-				new details::callable_c_t<
-					routine_cpp_t, uint32_t, const http_request_t&,
-					http_response_t&, const std::vector<std::string>&
-				>(routine)
-			), consumes, produces));
+		this->m_apis.push_back(
+			api_t(
+				uri,
+				method,
+				std::unique_ptr<routine_callable_t>(
+						new details::callable_c_t<
+							routine_c_t, result_t, const http_request_t&,
+							const std::vector<fast_str_t>&, http_response_t&
+						>(routine)
+				)
+			)
+		);
+	}
+
+	void add(const std::string& uri,
+		http_method_t method,
+		const routine_cpp_t& routine
+		) {
+		this->m_apis.push_back(
+			api_t(
+				uri,
+				method,
+				std::unique_ptr<routine_callable_t>(
+						new details::callable_c_t<
+							routine_cpp_t, result_t, const http_request_t&,
+							const std::vector<fast_str_t>&, http_response_t&
+						>(routine)
+				)
+			)
+		);
 	}
 
 	template <typename T>
 	void add(const std::string& uri,
 		http_method_t method,
 		T* self,
-		uint32_t (T::*routine)(const http_request_t&, http_response_t&, const std::vector<std::string>&),
-		const std::vector<std::string>& consumes = std::vector<std::string>(),
-		const std::vector<std::string>& produces = std::vector<std::string>()
+		result_t (T::*routine)(const http_request_t&, const std::vector<fast_str_t>&, http_response_t&)
 		) {
-		this->m_routines.push_back(value_t(uri, method,
-			std::unique_ptr<routine_callable_t>(
-				new details::callable_cpp_t<
-					T, uint32_t, const http_request_t&,
-					http_response_t&, const std::vector<std::string>&
-				>(self, routine)
-			), consumes, produces));
+		this->m_apis.push_back(
+			api_t(
+				uri,
+				method,
+				std::unique_ptr<routine_callable_t>(
+					new details::callable_cpp_t<
+						T, result_t, const http_request_t&,
+						const std::vector<fast_str_t>&, http_response_t&
+					>(self, routine)
+				)
+			)
+		);
 	}
 
 private:
 	std::string m_virtual_host;
 	std::string m_uri_root;
-	std::vector<std::string> m_consumes;
-	std::vector<std::string> m_produces;
 
 	// Keep this container flat, we will create another
-	// calculating module to dispatch request to each routine rapidly.
-	std::vector<value_t> m_routines;
+	// calculating module to dispatch request to each routine quickly.
+	std::vector<api_t> m_apis;
 };
 
 

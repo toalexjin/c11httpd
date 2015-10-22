@@ -7,6 +7,7 @@
 #include "c11httpd/acceptor.h"
 #include "c11httpd/conn.h"
 #include "c11httpd/fd.h"
+#include "c11httpd/http_processor.h"
 #include "c11httpd/link.h"
 #include "c11httpd/signal_manager.h"
 #include "c11httpd/socket.h"
@@ -448,17 +449,16 @@ err_t acceptor_t::run_tcp(const conn_event_adapter_t::on_received_t& recv) {
 	return this->run_tcp(&adapter);
 }
 
-err_t run_http(rest_controller_t* controller) {
+err_t acceptor_t::run_http(rest_controller_t* controller) {
 	assert(controller != 0);
-	(void) &controller;
 
-	return EPERM;
+	http_processor_t processor({controller});
+	return this->run_tcp(&processor);
 }
 
-err_t run_http(const std::vector<rest_controller_t*>& controllers) {
-	(void) &controllers;
-
-	return EPERM;
+err_t acceptor_t::run_http(const std::vector<rest_controller_t*>& controllers) {
+	http_processor_t processor(controllers);
+	return this->run_tcp(&processor);
 }
 
 err_t acceptor_t::stop() {
