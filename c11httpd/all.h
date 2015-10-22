@@ -17,6 +17,7 @@
 #include "c11httpd/err.h"
 #include "c11httpd/fast_str.h"
 #include "c11httpd/fd.h"
+#include "c11httpd/http_header_fields.h"
 #include "c11httpd/http_method.h"
 #include "c11httpd/http_processor.h"
 #include "c11httpd/http_request.h"

@@ -10,10 +10,5 @@
 namespace c11httpd {
 
 
-void http_response_t::append_to_buf(buf_t* send_buf) {
-
-}
-
-
 } // namespace c11httpd.
 

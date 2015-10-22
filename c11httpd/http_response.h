@@ -16,17 +16,23 @@ namespace c11httpd {
 // HTTP response.
 class http_response_t {
 public:
-	http_response_t() = default;
+	http_response_t() : m_send_buf(0) {
+	}
+
 	virtual ~http_response_t() = default;
 
 	// Clear content but do not free buffer.
 	void clear() {
+		this->m_send_buf = 0;
 	}
 
-	// Write response to the end of a buffer object.
-	void append_to_buf(buf_t* send_buf);
+	void attach(buf_t* send_buf) {
+		this->clear();
+		this->m_send_buf = send_buf;
+	}
 
 private:
+	buf_t* m_send_buf;
 };
 
 
