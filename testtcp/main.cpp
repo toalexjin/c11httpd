@@ -211,6 +211,9 @@ int main(int argc, char* argv[]) {
 				c11httpd::conn_session_t* session,
 				c11httpd::buf_t* recv_buf,
 				c11httpd::buf_t* send_buf) -> uint32_t {
+			std::cout << "{{";
+			std::cout.write(recv_buf->front(), recv_buf->size());
+			std::cout << "}}" << std::endl;
 			*send_buf << "[Echo] " << *recv_buf;
 			recv_buf->clear();
 			return 0;

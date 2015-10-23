@@ -115,6 +115,7 @@ http_request_t::parse_result_t http_request_t::continue_to_parse(
 			if (line.empty() && crlf) {
 				this->m_processed_bytes = size_t(msg.c_str() - this->m_recv_buf);
 				this->m_step = step_header_done;
+				std::sort(this->m_headers.begin(), this->m_headers.end());
 				break;
 			}
 
