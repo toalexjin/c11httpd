@@ -114,7 +114,7 @@ public:
 
 	typedef std::tuple<
 		std::string, // URI. e.g. "/company/employee/?".
-		http_method_t, // Method, e.g.GET/PUT/POST/DELETE.
+		http_method_t::type_t, // Method, e.g.GET/PUT/POST/DELETE.
 		std::unique_ptr<routine_callable_t> // Routine.
 	> api_t;
 
@@ -151,7 +151,7 @@ public:
 	}
 
 	void add(const std::string& uri,
-		http_method_t method,
+		http_method_t::type_t method,
 		const routine_c_t& routine
 		) {
 		this->m_apis.push_back(
@@ -169,7 +169,7 @@ public:
 	}
 
 	void add(const std::string& uri,
-		http_method_t method,
+		http_method_t::type_t method,
 		const routine_cpp_t& routine
 		) {
 		this->m_apis.push_back(
@@ -188,7 +188,7 @@ public:
 
 	template <typename T>
 	void add(const std::string& uri,
-		http_method_t method,
+		http_method_t::type_t method,
 		T* self,
 		result_t (T::*routine)(const http_request_t&, const std::vector<fast_str_t>&, http_response_t&)
 		) {

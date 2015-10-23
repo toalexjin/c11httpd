@@ -9,7 +9,7 @@
 #include "c11httpd/pre__.h"
 #include <cstring>
 #include <string>
-#include <algorithm>
+#include <vector>
 
 
 namespace c11httpd {
@@ -23,7 +23,11 @@ namespace c11httpd {
 // avoid allocating many small memory while parsing a http header.
 class fast_str_t {
 public:
+	// Not-found.
 	static const size_t npos = size_t(-1);
+
+	// An empty string.
+	static const fast_str_t empty_string;
 
 public:
 	fast_str_t() : m_str(0), m_len(0) {
@@ -44,6 +48,23 @@ public:
 	fast_str_t(const fast_str_t&) = default;
 	fast_str_t& operator=(const fast_str_t&) = default;
 
+	void clear() {
+		this->m_str = 0;
+		this->m_len = 0;
+	}
+
+	bool empty() const {
+		return this->m_len == 0;
+	}
+
+	size_t length() const {
+		return this->m_len;
+	}
+
+	const char* c_str() const {
+		return m_str;
+	}
+
 	char at(size_t index) const {
 		assert(index < this->m_len);
 		return this->m_str[index];
@@ -53,113 +74,14 @@ public:
 		return this->at(index);
 	}
 
+	void set(const char* str, size_t len) {
+		this->m_str = str;
+		this->m_len = len;
+	}
+
 	fast_str_t substr(size_t pos = 0, size_t len = npos) const {
 		assert(len == npos || pos + len <= m_len);
 		return fast_str_t(m_str + pos, len == npos ? (m_len - pos) : len);
-	}
-
-	size_t find(char ch) const {
-		for (size_t i = 0; i < this->m_len; ++i) {
-			if (this->m_str[i] == ch) {
-				return i;
-			}
-		}
-
-		return npos;
-	}
-
-	size_t find_first_of(char ch, size_t pos = 0) const {
-		for (size_t i = pos; i < this->m_len; ++i) {
-			if (ch == this->m_str[i]) {
-				return i;
-			}
-		}
-
-		return npos;
-	}
-
-	size_t find_first_of(const char* s, size_t pos = 0) const {
-		for (size_t i = pos; i < this->m_len; ++i) {
-			for (const char* ptr = s; *ptr != 0; ++ptr) {
-				if (*ptr == this->m_str[i]) {
-					return i;
-				}
-			}
-		}
-
-		return npos;
-	}
-
-	size_t find_first_not_of(char ch, size_t pos = 0) const {
-		for (size_t i = pos; i < this->m_len; ++i) {
-			if (ch != this->m_str[i]) {
-				return i;
-			}
-		}
-
-		return npos;
-	}
-
-	size_t find_first_not_of(const char* s, size_t pos = 0) const {
-		for (size_t i = pos; i < this->m_len; ++i) {
-			const char* ptr = s;
-
-			while (*ptr != 0 && *ptr != this->m_str[i]) {
-				++ptr;
-			}
-
-			if (*ptr == 0) {
-				return i;
-			}
-		}
-
-		return npos;
-	}
-
-	int cmp(const fast_str_t& another) const {
-		const size_t min_len = std::min(this->m_len, another.m_len);
-
-		for (size_t i = 0; i < min_len; ++i) {
-			if (uint8_t(this->m_str[i]) < uint8_t(another.m_str[i])) {
-				return -1;
-			} else if (uint8_t(this->m_str[i]) > uint8_t(another.m_str[i])) {
-				return 1;
-			}
-		}
-
-		if (this->m_len < another.m_len) {
-			return -1;
-		} else if (this->m_len > another.m_len) {
-			return 1;
-		}
-
-		return 0;
-	}
-
-	int cmpi(const fast_str_t& another) const {
-		const size_t min_len = std::min(this->m_len, another.m_len);
-
-		for (size_t i = 0; i < min_len; ++i) {
-			const uint8_t first = (this->m_str[i] >= 'A' && this->m_str[i] <= 'Z')
-					? uint8_t(this->m_str[i] - 'A' + 'a') : uint8_t(this->m_str[i]);
-
-			const uint8_t second = (another.m_str[i] >= 'A' && another.m_str[i] <= 'Z')
-					? uint8_t(another.m_str[i] - 'A' + 'a') : uint8_t(another.m_str[i]);
-
-			if (first < second) {
-				return -1;
-			} else if (first > second) {
-				return 1;
-			}
-		}
-
-		if (this->m_len < another.m_len) {
-			return -1;
-		} else if (this->m_len > another.m_len) {
-			return 1;
-		}
-
-		return 0;
 	}
 
 	bool operator==(const fast_str_t& another) const {
@@ -169,6 +91,35 @@ public:
 	bool operator!=(const fast_str_t& another) const {
 		return this->cmp(another) != 0;
 	}
+
+	int cmp(const fast_str_t& another) const;
+	int cmpi(const fast_str_t& another) const;
+
+	// Split string.
+	//
+	// @return Number of items.
+	size_t split(const char* delims, std::vector<fast_str_t>* items) const;
+
+	size_t find(char ch) const;
+	size_t find_first_of(char ch, size_t pos = 0) const;
+	size_t find_first_of(const char* delims, size_t pos = 0) const;
+	size_t find_first_not_of(char ch, size_t pos = 0) const;
+	size_t find_first_not_of(const char* delims, size_t pos = 0) const;
+
+	// Trim whitespaces, tab, etc.
+	//
+	// @return Number of removed characters.
+	size_t trim_left(const char* delims = " \t");
+	size_t trim_right(const char* delims = " \t");
+
+	// Trim both sides.
+	size_t trim(const char* delims = " \t");
+
+	bool to_number(int32_t* value) const;
+	bool to_number(uint32_t* value) const;
+
+	int32_t to_i32(int32_t default_value = 0) const;
+	uint32_t to_u32(uint32_t default_value = 0) const;
 
 private:
 	const char* m_str;

@@ -8,6 +8,7 @@
 
 #include "c11httpd/pre__.h"
 #include "c11httpd/buf.h"
+#include "c11httpd/http_header.h"
 
 
 namespace c11httpd {
@@ -29,6 +30,11 @@ public:
 	void attach(buf_t* send_buf) {
 		this->clear();
 		this->m_send_buf = send_buf;
+	}
+
+	http_response_t& operator<<(const http_header_t& header) {
+
+		return *this;
 	}
 
 private:
