@@ -10,6 +10,7 @@
 #include <cstring>
 #include <string>
 #include <vector>
+#include <iostream>
 
 
 namespace c11httpd {
@@ -134,6 +135,14 @@ public:
 		return first.cmpi(second) < 0;
 	}
 };
+
+
+// Support STL output stream.
+template <typename T, typename Traits>
+inline std::basic_ostream<T, Traits>& operator<<(
+	std::basic_ostream<T, Traits>& ostream, const fast_str_t& str) {
+	return ostream.write(str.c_str(), str.length());
+}
 
 
 } // namespace c11httpd.

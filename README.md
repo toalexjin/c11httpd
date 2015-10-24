@@ -234,48 +234,63 @@ int main() {
 	acceptor.worker_processes(4);
 
 	// Controller for "company.net".
-	c11httpd::rest_controller_t c1("company.net",
-		"/company", {}, {"application/json;charset=UTF-8"});
+	c11httpd::rest_controller_t c1("company.net", "/company");
 
 	// GET "/company/employee".
 	c1.add("/employee", http_method_get, [](const http_request_t& request,
-		http_response_t& response, const std::vector<std::string>& variables) -> uint32_t {
+		http_response_t& response, const std::vector<fast_str_t>& placeholders) -> uint32_t {
 
-		// Should use a json parser to encode the string.
-		response.content() << "[]";
+		// Set HTTP response headers.
+		response << http_header_t("Content-Type", "application/json;charset=UTF-8");
+
+		// Write response content.
+		// Note that the user should use a json parser to encode the string.
+		response << "[]";
+
 		return 0;
 	});
 
 	// GET "/company/employee/?".
 	c1.add("/employee/?", http_method_get, [](const http_request_t& request,
-		http_response_t& response, const std::vector<std::string>& variables) -> uint32_t {
+		http_response_t& response, const std::vector<fast_str_t>& placeholders) -> uint32_t {
 
-		// Should use a json parser to encode the string.
-		response.content() << "{\"id\":\""
-			<< variables[0] << "\",\"name\":\"Alex Jin\"}";
+		// Set HTTP response headers.
+		response << http_header_t("Content-Type", "application/json;charset=UTF-8");
+
+		// Write response content.
+		// Note that the user should use a json parser to encode the string.
+		response << "{\"id\":\"" << variables[0] << "\",\"name\":\"Alex Jin\"}";
+
 		return 0;
 	});
 
 	// Controller for "school.net".
-	c11httpd::rest_controller_t c2("school.net",
-		"/school", {}, {"application/json;charset=UTF-8"});
+	c11httpd::rest_controller_t c2("school.net", "/school");
 
 	// GET "/school/student".
 	c2.add("/student", http_method_get, [](const http_request_t& request,
-		http_response_t& response, const std::vector<std::string>& variables) -> uint32_t {
+		http_response_t& response, const std::vector<fast_str_t>& placeholders) -> uint32_t {
 
-		// Should use a json parser to encode the string.
+		// Set HTTP response headers.
+		response << http_header_t("Content-Type", "application/json;charset=UTF-8");
+
+		// Write response content.
+		// Note that the user should use a json parser to encode the string.
 		response.content() << "[]";
+
 		return 0;
 	});
 
 	// GET "/school/student/?".
 	c2.add("/student/?", http_method_get, [](const http_request_t& request,
-		http_response_t& response, const std::vector<std::string>& variables) -> uint32_t {
+		http_response_t& response, const std::vector<fast_str_t>& placeholders) -> uint32_t {
 
-		// Should use a json parser to encode the string.
-		response.content() << "{\"id\":\""
-			<< variables[0] << "\",\"name\":\"Alex Jin\"}";
+		// Set HTTP response headers.
+		response << http_header_t("Content-Type", "application/json;charset=UTF-8");
+
+		// Not found.
+		response.code(http_status_t::not_found);
+
 		return 0;
 	});
 
