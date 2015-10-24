@@ -65,12 +65,20 @@ public:
 		: m_key(key), m_value(value) {
 	}
 
+	fast_str_t& key() {
+		return this->m_key;
+	}
+
 	const fast_str_t& key() const {
 		return this->m_key;
 	}
 
 	void key(const fast_str_t& key) {
 		this->m_key = key;
+	}
+
+	fast_str_t& value() {
+		return this->m_value;
 	}
 
 	const fast_str_t& value() const {

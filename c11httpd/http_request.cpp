@@ -25,7 +25,6 @@ void http_request_t::clear() {
 	this->m_method = http_method_t::unknown;
 	this->m_uri.clear();
 	this->m_http_version.clear();
-	this->m_host.clear();
 	this->m_headers.clear();
 	this->m_content = 0;
 	this->m_content_length = 0;
@@ -35,6 +34,8 @@ void http_request_t::clear() {
 }
 
 const fast_str_t& http_request_t::header(const fast_str_t& key) const {
+	assert(!key.empty());
+
 	const http_header_t val(key, fast_str_t());
 	const auto it = std::lower_bound(
 			this->m_headers.cbegin(),
@@ -50,28 +51,32 @@ const fast_str_t& http_request_t::header(const fast_str_t& key) const {
 
 http_request_t::parse_result_t http_request_t::continue_to_parse(
 	const buf_t* recv_buf, size_t* bytes) {
+	assert(recv_buf != 0);
+	assert(recv_buf->size() >= this->m_processed_bytes);
+	assert(bytes != 0);
 
 	// Clear content.
 	*bytes = 0;
 
 	// "recv_buf" might have been re-allocated. If that's true,
-	// all "fast_str_t" will become invalid, we need to clear.
+	// all "fast_str_t" will become invalid, need to update.
 	if (this->m_recv_buf != 0 && this->m_recv_buf != recv_buf->front()) {
-		this->clear();
+		this->update_all_fast_str_i(this->m_recv_buf, recv_buf->front());
 	}
 
-	// Treat the entire request as a big message string.
+	// Save recv_buf start position.
 	this->m_recv_buf = recv_buf->front();
-	fast_str_t msg(recv_buf->front(), recv_buf->size());
+
 	fast_str_t line;
 	bool crlf;
 	next_line_t next_result;
-	fast_str_t key;
-	fast_str_t value;
 
 	// First line: "GET /aa/bb HTTP/1.1"
 	if (this->m_step < step_uri_done) {
+		// Treat the entire package as a big message string.
+		fast_str_t msg(recv_buf->front(), recv_buf->size());
 		next_result = next_line_i(&msg, &line, &crlf);
+
 		if (next_result == next_line_t::failed) {
 			return parse_result_t::failed;
 		}
@@ -89,6 +94,10 @@ http_request_t::parse_result_t http_request_t::continue_to_parse(
 			return parse_result_t::failed;
 		}
 
+		if (this->m_split_items[1].at(0) != '/') {
+			return parse_result_t::failed;
+		}
+
 		this->m_uri = this->m_split_items[1];
 		this->m_http_version = this->m_split_items[2];
 
@@ -96,9 +105,10 @@ http_request_t::parse_result_t http_request_t::continue_to_parse(
 		this->m_step = step_uri_done;
 	}
 
-	// Still in parsing header phrase.
+	// Parse header attributes.
 	if (this->m_step < step_header_done) {
-		msg.set(recv_buf->front() + this->m_processed_bytes,
+		fast_str_t key, value;
+		fast_str_t msg(recv_buf->front() + this->m_processed_bytes,
 			recv_buf->size() - this->m_processed_bytes);
 
 		while (true) {
@@ -123,35 +133,26 @@ http_request_t::parse_result_t http_request_t::continue_to_parse(
 				return parse_result_t::failed;
 			}
 
-			const auto key_ptr = http_header_t::all::instance().request_find(key);
-			if (key_ptr == 0) {
-				return parse_result_t::failed;
-			}
-
-			m_headers.push_back(http_header_t(*key_ptr, value));
+			m_headers.push_back(http_header_t(key, value));
 			this->m_processed_bytes = size_t(msg.c_str() - this->m_recv_buf);
 		}
 	}
 
 	if (this->m_step < step_content_done) {
-		// Get "Host".
-		if (m_host.empty()) {
-			m_host = this->header("Host");
-			if (m_host.empty()) {
-				return parse_result_t::failed;
-			}
-		}
-
 		if (this->m_content_length == 0) {
-			int32_t n;
+			const auto& len_str = this->header("Content-Length");
 
-			if (!this->header("Content-Length").to_number(&n)
-				|| n < 0
-				|| n > 10 * 1024 * 1024) {
-				return parse_result_t::failed;
+			if (!len_str.empty()) {
+				int32_t n;
+
+				if (!len_str.to_number(&n)
+					|| n < 0
+					|| n > 10 * 1024 * 1024) {
+					return parse_result_t::failed;
+				}
+
+				this->m_content_length = size_t(n);
 			}
-
-			this->m_content_length = size_t(n);
 		}
 
 		if (this->m_processed_bytes + this->m_content_length > recv_buf->size() ) {
@@ -167,7 +168,8 @@ http_request_t::parse_result_t http_request_t::continue_to_parse(
 	return parse_result_t::ok;
 }
 
-http_request_t::next_line_t http_request_t::next_line_i(fast_str_t* msg, fast_str_t* line, bool* crlf) {
+http_request_t::next_line_t http_request_t::next_line_i(
+	fast_str_t* msg, fast_str_t* line, bool* crlf) {
 	assert(msg != 0);
 	assert(line != 0);
 	assert(crlf != 0);
@@ -199,8 +201,8 @@ bool http_request_t::split_header_line_i(
 	assert(key != 0);
 	assert(value != 0);
 
-	auto pos = line.find_first_of(':');
-	if (pos == 0 || pos == fast_str_t::npos) {
+	const auto pos = line.find_first_of(':');
+	if (pos == 0 || pos == fast_str_t::npos || pos == line.length() - 1) {
 		return false;
 	}
 
@@ -215,6 +217,27 @@ bool http_request_t::split_header_line_i(
 	}
 
 	return true;
+}
+
+void http_request_t::update_all_fast_str_i(const char* old_recv_buf, const char* new_recv_buf) {
+	assert(old_recv_buf != 0);
+	assert(new_recv_buf != 0);
+
+	if (this->m_step >= step_uri_done) {
+		update_single_fast_str_i(&this->m_uri, old_recv_buf, new_recv_buf);
+		update_single_fast_str_i(&this->m_http_version, old_recv_buf, new_recv_buf);
+	} else {
+		return;
+	}
+
+	if (this->m_step >= step_header_done) {
+		for (decltype(this->m_headers.size()) i = 0; i < this->m_headers.size(); ++i) {
+			update_single_fast_str_i(&(this->m_headers[i].key()), old_recv_buf, new_recv_buf);
+			update_single_fast_str_i(&(this->m_headers[i].value()), old_recv_buf, new_recv_buf);
+		}
+	} else {
+		return;
+	}
 }
 
 

@@ -62,11 +62,14 @@ public:
 	void clear();
 
 	// Get header value.
+	//
+	// If the specified header could not be found,
+	// then an empty string will be returned.
 	const fast_str_t& header(const fast_str_t& key) const;
 
 	// Get host.
 	const fast_str_t& host() const {
-		return this->m_host;
+		return this->header("Host");
 	}
 
 	// Get all headers.
@@ -93,13 +96,32 @@ private:
 	static next_line_t next_line_i(fast_str_t* msg, fast_str_t* line, bool* crlf);
 	static bool split_header_line_i(const fast_str_t& line, fast_str_t* key, fast_str_t* value);
 
+	// Update fast_str_t's internal pointer.
+	//
+	// If recv_buf was re-allocated, we need to update
+	// all parsed fast_str_t objects' internal pointers
+	// before continue to parse the rest content of
+	// a HTTP request.
+	static void update_single_fast_str_i(fast_str_t* str,
+		const char* old_recv_buf, const char* new_recv_buf) {
+		assert(str != 0);
+		assert(old_recv_buf != 0);
+		assert(new_recv_buf != 0);
+
+		if (str->c_str() != 0) {
+			assert(str->c_str() > old_recv_buf);
+			str->set(new_recv_buf + (str->c_str() - old_recv_buf), str->length());
+		}
+	}
+
+	void update_all_fast_str_i(const char* old_recv_buf, const char* new_recv_buf);
+
 private:
 	// Points to the starting location of the buffer.
 	const char* m_recv_buf;
 	http_method_t::type_t m_method;
 	fast_str_t m_uri;
 	fast_str_t m_http_version;
-	fast_str_t m_host;
 
 	// An ascending sorted header list (case insensitive).
 	std::vector<http_header_t> m_headers;
