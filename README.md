@@ -107,46 +107,12 @@ int main() {
 ### How to create a full life-cycle TCP service:
 
 ```C++
-// My session context, created in "on_connected" event
-// and released in "on_disconnected" event.
-class my_ctx_t : public c11httpd::conn_ctx_t {
-public:
-	virtual void clear() {
-		this->m_login_id.clear();
-	}
-
-	const std::string& login_id() const {
-		return this->m_login_id;
-	}
-
-	void login_id(const std::string& login_id) {
-		this->m_login_id = login_id;
-	}
-
-private:
-	std::string m_login_id;
-};
-
 // My event handler.
 class my_event_handler_t : public c11httpd::conn_event_t {
 public:
 	virtual uint32_t on_connected(
 		c11httpd::conn_session_t* session,
 		c11httpd::buf_t* send_buf) {
-
-		// The session object might have a context object
-		// that was used by previous connection.
-		if (session->get_ctx() == 0) {
-			session->set_ctx(new my_ctx_t());
-		}
-
-		// This context object is valid until "on_disconnected" event completes.
-		auto ctx = (my_ctx_t*) session->get_ctx();
-
-		// Use UTC time as login session id.
-		//
-		// It's not unique, to be enhanced.
-		ctx->login_id(std::to_string(std::time(0));
 
 		*send_buf << "Hello, " << session->ip() << ":"
 			<< std::to_string(session->port()) << "\r\n";
@@ -155,13 +121,8 @@ public:
 	}
 
 	virtual void on_disconnected(c11httpd::conn_session_t* session) {
-		// There is no need to release the context object in this routine
-		// because c11httpd library will do it after "on_disconnected" returns.
-		auto ctx = (my_ctx_t*) session->get_ctx();
-
 		std::cout << session->ip() << ":" << session->port()
 			<< " was disconnected." << std::endl;
-		std::cout << "Login id will be recycled:" << ctx->login_id() << std::endl;
 	}
 
 	virtual uint32_t on_received(
@@ -276,7 +237,7 @@ int main() {
 
 		// Write response content.
 		// Note that the user should use a json parser to encode the string.
-		response.content() << "[]";
+		response << "[]";
 
 		return 0;
 	});
