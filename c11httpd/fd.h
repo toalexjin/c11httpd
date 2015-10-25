@@ -35,12 +35,12 @@ public:
 		return this->set(fd);
 	}
 
-	bool opened() const {
+	bool is_open() const {
 		return this->m_fd >= 0;
 	}
 
 	bool closed() const {
-		return !this->opened();
+		return !this->is_open();
 	}
 
 	int get() const {

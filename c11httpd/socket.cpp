@@ -34,7 +34,7 @@ err_t socket_t::new_ipv6_nonblock() {
 }
 
 err_t socket_t::bind_ipv4(const std::string& ip, uint16_t port) {
-	assert(this->opened());
+	assert(this->is_open());
 
 	struct sockaddr_in address;
 
@@ -66,7 +66,7 @@ err_t socket_t::bind_ipv4(const std::string& ip, uint16_t port) {
 }
 
 err_t socket_t::bind_ipv6(const std::string& ip, uint16_t port) {
-	assert(this->opened());
+	assert(this->is_open());
 
 	// Make IPV6 accept IPV6 connections only.
 	// Otherwise, listening to the same port would fail.
@@ -109,7 +109,7 @@ err_t socket_t::accept(socket_t* sd, std::string* ip, uint16_t* port, bool* ipv6
 	socklen_t len = sizeof(addr);
 	char buf[INET6_ADDRSTRLEN + 1];
 
-	assert(this->opened());
+	assert(this->is_open());
 	assert(sd != 0);
 	assert(ip != 0);
 	assert(port != 0);
@@ -157,7 +157,7 @@ err_t socket_t::accept(socket_t* sd, std::string* ip, uint16_t* port, bool* ipv6
 }
 
 err_t socket_t::listen(int backlog) {
-	assert(this->opened());
+	assert(this->is_open());
 
 	if (::listen(this->get(), backlog) != 0) {
 		return err_t::current();
@@ -167,7 +167,7 @@ err_t socket_t::listen(int backlog) {
 }
 
 err_t socket_t::send(const void* buf, size_t size, size_t* ok_bytes) {
-	assert(this->opened());
+	assert(this->is_open());
 	assert(buf != 0 || size == 0);
 	assert(ok_bytes != 0);
 
@@ -182,7 +182,7 @@ err_t socket_t::send(const void* buf, size_t size, size_t* ok_bytes) {
 }
 
 err_t socket_t::recv(void* buf, size_t size, size_t* ok_bytes) {
-	assert(this->opened());
+	assert(this->is_open());
 	assert(buf != 0 || size == 0);
 	assert(ok_bytes != 0);
 
@@ -197,7 +197,7 @@ err_t socket_t::recv(void* buf, size_t size, size_t* ok_bytes) {
 }
 
 bool socket_t::reuseaddr() const {
-	assert(this->opened());
+	assert(this->is_open());
 
 	int state = 0;
 	socklen_t size = sizeof(state);
@@ -210,7 +210,7 @@ bool socket_t::reuseaddr() const {
 }
 
 err_t socket_t::reuseaddr(bool flag) {
-	assert(this->opened());
+	assert(this->is_open());
 
 	const int state = flag ? 1 : 0;
 	if (setsockopt(this->get(), SOL_SOCKET, SO_REUSEADDR,

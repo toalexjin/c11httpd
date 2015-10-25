@@ -198,7 +198,7 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 
 	// Create epoll handle.
 	epoll = epoll_create1(EPOLL_CLOEXEC);
-	if (!epoll.opened()) {
+	if (!epoll.is_open()) {
 		ret.set_current();
 		goto clean;
 	}
@@ -471,8 +471,8 @@ void acceptor_t::on_signalled(int signum) {
 
 err_t acceptor_t::epoll_set_i(fd_t epoll, socket_t sock,
 	waitable_t* waitable, int op, uint32_t events) {
-	assert(epoll.opened());
-	assert(sock.opened());
+	assert(epoll.is_open());
+	assert(sock.is_open());
 	assert(waitable != 0);
 
 	struct epoll_event event;
@@ -484,8 +484,8 @@ err_t acceptor_t::epoll_set_i(fd_t epoll, socket_t sock,
 }
 
 err_t acceptor_t::epoll_del_i(fd_t epoll, socket_t sock) {
-	assert(epoll.opened());
-	assert(sock.opened());
+	assert(epoll.is_open());
+	assert(sock.is_open());
 
 	return epoll_ctl(epoll.get(), EPOLL_CTL_DEL, sock.get(), 0);
 }
@@ -571,7 +571,7 @@ err_t acceptor_t::recv_signal_sock_i(fd_t* epoll, bool* exit) {
 	uint8_t buf[256];
 	size_t ok_bytes;
 
-	assert(m_signal_sock[0].opened());
+	assert(m_signal_sock[0].is_open());
 	assert(exit != 0);
 
 	// Clear content.
@@ -623,7 +623,7 @@ err_t acceptor_t::recv_signal_sock_i(fd_t* epoll, bool* exit) {
 
 		// Create epoll handle.
 		*epoll = epoll_create1(EPOLL_CLOEXEC);
-		if (!epoll->opened()) {
+		if (!epoll->is_open()) {
 			ret.set_current();
 			goto clean;
 		}
@@ -665,7 +665,7 @@ err_t acceptor_t::send_signal_sock_i(int signum) {
 	// Lock.
 	this->m_signal_sock_mutex.lock();
 
-	if (this->m_signal_sock[1].opened()) {
+	if (this->m_signal_sock[1].is_open()) {
 		size_t ok_bytes;
 		const uint8_t data(signum);
 

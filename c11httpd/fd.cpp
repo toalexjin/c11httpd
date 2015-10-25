@@ -27,14 +27,14 @@ err_t fd_t::close() {
 }
 
 bool fd_t::nonblock() const {
-	assert(this->opened());
+	assert(this->is_open());
 
 	const int value = fcntl(this->get(), F_GETFL);
 	return (value & O_NONBLOCK) != 0;
 }
 
 err_t fd_t::nonblock(bool flag) {
-	assert(this->opened());
+	assert(this->is_open());
 
 	const int old = fcntl(this->get(), F_GETFL);
 	const int updated = flag ? (old | O_NONBLOCK) : (old & (~O_NONBLOCK));
