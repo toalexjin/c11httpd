@@ -10,23 +10,27 @@
 namespace c11httpd {
 
 
-uint32_t http_processor_t::on_connected(conn_session_t& session, buf_t& send_buf) {
+uint32_t http_processor_t::on_connected(
+	ctx_setter_t& ctx_setter, conn_session_t& session,
+	buf_t& send_buf) {
 	return 0;
 }
 
-void http_processor_t::on_disconnected(conn_session_t& session) {
+void http_processor_t::on_disconnected(
+	ctx_setter_t& ctx_setter, conn_session_t& session) {
 }
 
-uint32_t http_processor_t::on_received(conn_session_t& session,
-			buf_t& recv_buf, buf_t& send_buf) {
+uint32_t http_processor_t::on_received(
+	ctx_setter_t& ctx_setter, conn_session_t& session,
+	buf_t& recv_buf, buf_t& send_buf) {
 
 	// Create a new HTTP session object if it's not created.
-	if (session.get_ctx() == 0) {
-		session.set_ctx(new http_session_t());
+	if (ctx_setter.ctx() == 0) {
+		ctx_setter.ctx(new http_session_t());
 	}
 
 	// Get the HTTP session object.
-	auto http_session = (http_session_t*) session.get_ctx();
+	auto http_session = (http_session_t*) ctx_setter.ctx();
 
 	// Parse HTTP request.
 	size_t request_bytes;
@@ -65,8 +69,10 @@ rest_controller_t::result_t http_processor_t::process_i(http_session_t* http_ses
 	return rest_controller_t::result_t::done;
 }
 
-uint32_t http_processor_t::get_more_data(conn_session_t& session, buf_t& send_buf) {
+uint32_t http_processor_t::get_more_data(
+	ctx_setter_t& ctx_setter, conn_session_t& session, buf_t& send_buf) {
 	return 0;
 }
+
 
 } // namespace c11httpd.

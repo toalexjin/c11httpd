@@ -290,7 +290,7 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 					do {
 						// Trigger "on_connected" event.
 						conn->last_event_result(handler->on_connected(
-								*conn, conn->send_buf()));
+								*conn, *conn, conn->send_buf()));
 
 						// If no data to send and disconnect flag is on,
 						// then close connection.
@@ -322,7 +322,7 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 
 					if (gc) {
 						// Trigger "on_disconnected" event.
-						handler->on_disconnected(*conn);
+						handler->on_disconnected(*conn, *conn);
 
 						this->add_free_conn_i(&free_list, &free_count, conn);
 						conn = 0;
@@ -352,7 +352,7 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 						// Trigger "on_received" event.
 						if (new_recv_size > 0) {
 							conn->last_event_result(handler->on_received(
-									*conn, conn->recv_buf(), conn->send_buf()));
+								*conn, *conn, conn->recv_buf(), conn->send_buf()));
 						}
 
 						// Client side has closed connection.
@@ -393,7 +393,7 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 				if (gc) {
 					if (this->epoll_del_i(epoll, conn->sock()).ok()) {
 						// Trigger "on_disconnected" event.
-						handler->on_disconnected(*conn);
+						handler->on_disconnected(*conn, *conn);
 
 						// Remove it from used list.
 						conn->link_node()->unlink();
@@ -417,7 +417,7 @@ clean:
 
 	// Trigger "on_disconnected" event for each existing connection.
 	used_list.for_each([handler](conn_t* c) {
-		handler->on_disconnected(*c);
+		handler->on_disconnected(*c, *c);
 		delete c;
 	});
 
@@ -521,7 +521,7 @@ err_t acceptor_t::loop_send_i(conn_event_t* handler, conn_t* conn) {
 			break;
 		}
 
-		conn->last_event_result(handler->get_more_data(*conn, conn->send_buf()));
+		conn->last_event_result(handler->get_more_data(*conn, *conn, conn->send_buf()));
 		if (conn->pending_send_size() == 0) {
 			assert((conn->last_event_result() & event_result_more_data) == 0);
 			break;

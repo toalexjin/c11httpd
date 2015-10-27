@@ -9,6 +9,7 @@
 #include "c11httpd/pre__.h"
 #include "c11httpd/buf.h"
 #include "c11httpd/conn_session.h"
+#include "c11httpd/ctx_setter.h"
 #include "c11httpd/link.h"
 #include "c11httpd/listen.h"
 #include "c11httpd/socket.h"
@@ -23,7 +24,7 @@ namespace c11httpd {
 // For each new client incoming connection, a conn_t object
 // would be created. After the client connection was disconnected,
 // the conn_t object might be re-used by acceptor_t for better performance.
-class conn_t : public waitable_t, public conn_session_t {
+class conn_t : public waitable_t, public conn_session_t, public ctx_setter_t {
 public:
 	conn_t(const socket_t& sd, const std::string& ip, uint16_t port, bool ipv6)
 		: waitable_t(waitable_t::type_conn),

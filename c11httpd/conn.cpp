@@ -18,8 +18,8 @@ conn_t::~conn_t() {
 void conn_t::close() {
 	// Clear context but do not free memory
 	// so that the context could be re-used later.
-	if (this->get_ctx() != 0) {
-		this->get_ctx()->clear();
+	if (this->ctx() != 0) {
+		this->ctx()->clear();
 	}
 
 	this->m_ip.clear();

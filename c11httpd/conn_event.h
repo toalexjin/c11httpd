@@ -7,7 +7,9 @@
 #pragma once
 
 #include "c11httpd/pre__.h"
+#include "c11httpd/buf.h"
 #include "c11httpd/conn_session.h"
+#include "c11httpd/ctx_setter.h"
 
 
 namespace c11httpd {
@@ -39,18 +41,37 @@ public:
 	// A new connection was established.
 	//
 	// "on_connected" event and "on_disconneted" event are always in pairs.
+	// <BR>
+	//
+	// A typical event handler should create (or initiate)
+	// the context object ("ctx_setter.ctx()") in "on_connected" event,
+	// and un-initiate the context object in "on_disconnected" event.
+	// Note that when "on_connected" event is invoked, "ctx_setter->ctx()"
+	// might be non-null, which is a clean object allocated from object pool.
 	//
 	// "send_buf" might have some data pending to send,
 	// so NEVER remove any data that the object already has,
 	// and ALWAYS append data at the end.
 	//
 	// @return A combination value of event_result_t.
-	virtual uint32_t on_connected(conn_session_t& session, buf_t& send_buf) = 0;
+	virtual uint32_t on_connected(
+		ctx_setter_t& ctx_setter, conn_session_t& session,
+		buf_t& send_buf) = 0;
 
 	// Connection was disconnected.
 	//
 	// "on_connected" event and "on_disconneted" event are always in pairs.
-	virtual void on_disconnected(conn_session_t& session) = 0;
+	// <BR>
+	//
+	// Once "on_disconnected" event returns, if "ctx_setter->ctx()" is not NULL,
+	// then "ctx_setter->ctx()->clear()" would be called by the library automatically
+	// and the context object itself would be re-used by next incoming connection.
+	// <BR>
+	//
+	// The caller should NOT call "ctx_setter.ctx(NULL)" in "on_disconnected" event.
+	// Otherwise, the context object could NOT be re-used by next incoming connection.
+	virtual void on_disconnected(
+		ctx_setter_t& ctx_setter, conn_session_t& session) = 0;
 
 	// New data was received.
 	//
@@ -67,8 +88,9 @@ public:
 	// and ALWAYS append data at the end.
 	//
 	// @return A combination value of event_result_t.
-	virtual uint32_t on_received(conn_session_t& session,
-			buf_t& recv_buf, buf_t& send_buf) = 0;
+	virtual uint32_t on_received(
+		ctx_setter_t& ctx_setter, conn_session_t& session,
+		buf_t& recv_buf, buf_t& send_buf) = 0;
 
 	// Get more data to send.
 	//
@@ -77,7 +99,9 @@ public:
 	// and ALWAYS append data at the end.
 	//
 	// @return A combination value of event_result_t.
-	virtual uint32_t get_more_data(conn_session_t& session, buf_t& send_buf) = 0;
+	virtual uint32_t get_more_data(
+		ctx_setter_t& ctx_setter, conn_session_t& session,
+		buf_t& send_buf) = 0;
 };
 
 

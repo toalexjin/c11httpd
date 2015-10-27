@@ -7,7 +7,7 @@
 #pragma once
 
 #include "c11httpd/pre__.h"
-#include "c11httpd/conn_ctx.h"
+#include "c11httpd/ctx.h"
 #include "c11httpd/fast_str.h"
 #include "c11httpd/http_request.h"
 #include "c11httpd/http_response.h"
@@ -20,7 +20,7 @@ namespace c11httpd {
 // HTTP session.
 //
 // Each HTTP connection would have a HTTP session object associated.
-class http_session_t : public conn_ctx_t {
+class http_session_t : public ctx_t {
 public:
 	http_session_t() = default;
 	virtual ~http_session_t() = default;

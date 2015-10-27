@@ -11,7 +11,7 @@
 #include <signal.h>
 
 
-class my_context_t : public c11httpd::conn_ctx_t {
+class my_context_t : public c11httpd::ctx_t {
 public:
 	my_context_t() {
 		this->clear();
@@ -109,22 +109,32 @@ void my_context_t::parse(char* first, const char* last) {
 
 class my_event_handler_t : public c11httpd::conn_event_t {
 public:
-	virtual uint32_t on_connected(c11httpd::conn_session_t& session,
-			c11httpd::buf_t& send_buf);
+	virtual uint32_t on_connected(
+		c11httpd::ctx_setter_t& ctx_setter,
+		c11httpd::conn_session_t& session,
+		c11httpd::buf_t& send_buf);
 
-	virtual void on_disconnected(c11httpd::conn_session_t& session);
+	virtual void on_disconnected(
+		c11httpd::ctx_setter_t& ctx_setter,
+		c11httpd::conn_session_t& session);
 
-	virtual uint32_t on_received(c11httpd::conn_session_t& session,
-			c11httpd::buf_t& recv_buf, c11httpd::buf_t& send_buf);
+	virtual uint32_t on_received(
+		c11httpd::ctx_setter_t& ctx_setter,
+		c11httpd::conn_session_t& session,
+		c11httpd::buf_t& recv_buf, c11httpd::buf_t& send_buf);
 
-	virtual uint32_t get_more_data(c11httpd::conn_session_t& session,
-			c11httpd::buf_t& send_buf);
+	virtual uint32_t get_more_data(
+		c11httpd::ctx_setter_t& ctx_setter,
+		c11httpd::conn_session_t& session,
+		c11httpd::buf_t& send_buf);
 };
 
 
-uint32_t my_event_handler_t::on_connected(c11httpd::conn_session_t& session,
-		c11httpd::buf_t& send_buf) {
-	session.set_ctx(new my_context_t());
+uint32_t my_event_handler_t::on_connected(
+	c11httpd::ctx_setter_t& ctx_setter,
+	c11httpd::conn_session_t& session,
+	c11httpd::buf_t& send_buf) {
+	ctx_setter.ctx(new my_context_t());
 
 	std::cout << session << " was connected." << std::endl;
 
@@ -134,12 +144,17 @@ uint32_t my_event_handler_t::on_connected(c11httpd::conn_session_t& session,
 	return 0;
 }
 
-void my_event_handler_t::on_disconnected(c11httpd::conn_session_t& session) {
+void my_event_handler_t::on_disconnected(
+	c11httpd::ctx_setter_t& ctx_setter,
+	c11httpd::conn_session_t& session) {
 	std::cout << session << " was disconnected." << std::endl;
 }
 
-uint32_t my_event_handler_t::on_received(c11httpd::conn_session_t& session,
-		c11httpd::buf_t& recv_buf, c11httpd::buf_t& send_buf) {
+uint32_t my_event_handler_t::on_received(
+	c11httpd::ctx_setter_t& ctx_setter,
+	c11httpd::conn_session_t& session,
+	c11httpd::buf_t& recv_buf, c11httpd::buf_t& send_buf) {
+
 	char* first = recv_buf.front();
 	char* last = first;
 
@@ -156,7 +171,7 @@ uint32_t my_event_handler_t::on_received(c11httpd::conn_session_t& session,
 	std::cout.write(first, last - first);
 	std::cout << ")" << std::endl;
 
-	my_context_t* ctx = (my_context_t*) session.get_ctx();
+	my_context_t* ctx = (my_context_t*) ctx_setter.ctx();
 	ctx->parse(first, last);
 
 	// Clear recv data as we already processed it.
@@ -168,9 +183,12 @@ uint32_t my_event_handler_t::on_received(c11httpd::conn_session_t& session,
 	return ctx->more() ? c11httpd::event_result_more_data : 0;
 }
 
-uint32_t my_event_handler_t::get_more_data(c11httpd::conn_session_t& session,
-		c11httpd::buf_t& send_buf) {
-	my_context_t* ctx = (my_context_t*) session.get_ctx();
+uint32_t my_event_handler_t::get_more_data(
+	c11httpd::ctx_setter_t& ctx_setter,
+	c11httpd::conn_session_t& session,
+	c11httpd::buf_t& send_buf) {
+
+	my_context_t* ctx = (my_context_t*) ctx_setter.ctx();
 	ctx->next(send_buf);
 
 	return ctx->more() ? c11httpd::event_result_more_data : 0;
@@ -208,6 +226,7 @@ int main(int argc, char* argv[]) {
 
 	if (std::strcmp(argv[1], "echo") == 0) {
 		ret = acceptor.run_tcp([](
+				c11httpd::ctx_setter_t& ctx_setter,
 				c11httpd::conn_session_t& session,
 				c11httpd::buf_t& recv_buf,
 				c11httpd::buf_t& send_buf) -> uint32_t {
