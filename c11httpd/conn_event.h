@@ -45,12 +45,12 @@ public:
 	// and ALWAYS append data at the end.
 	//
 	// @return A combination value of event_result_t.
-	virtual uint32_t on_connected(conn_session_t* session, buf_t* send_buf);
+	virtual uint32_t on_connected(conn_session_t& session, buf_t& send_buf);
 
 	// Connection was disconnected.
 	//
 	// "on_connected" event and "on_disconneted" event are always in pairs.
-	virtual void on_disconnected(conn_session_t* session);
+	virtual void on_disconnected(conn_session_t& session);
 
 	// New data was received.
 	//
@@ -67,8 +67,8 @@ public:
 	// and ALWAYS append data at the end.
 	//
 	// @return A combination value of event_result_t.
-	virtual uint32_t on_received(conn_session_t* session,
-			buf_t* recv_buf, buf_t* send_buf);
+	virtual uint32_t on_received(conn_session_t& session,
+			buf_t& recv_buf, buf_t& send_buf);
 
 	// Get more data to send.
 	//
@@ -77,7 +77,7 @@ public:
 	// and ALWAYS append data at the end.
 	//
 	// @return A combination value of event_result_t.
-	virtual uint32_t get_more_data(conn_session_t* session, buf_t* send_buf);
+	virtual uint32_t get_more_data(conn_session_t& session, buf_t& send_buf);
 };
 
 

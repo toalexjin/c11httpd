@@ -81,8 +81,8 @@ public:
 		this->m_last_event_result = value;
 	}
 
-	buf_t* recv_buf();
-	buf_t* send_buf();
+	buf_t& recv_buf();
+	buf_t& send_buf();
 
 	// Receive data.
 	err_t recv(size_t* new_recv_size, bool* peer_closed);

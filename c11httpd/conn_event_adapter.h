@@ -19,10 +19,10 @@ namespace c11httpd {
 // With this class, you could quickly create an event handler by using c++ lambda.
 class conn_event_adapter_t : public conn_event_t {
 public:
-	typedef std::function<uint32_t(conn_session_t*, buf_t*)> on_connected_t;
-	typedef std::function<void(conn_session_t*)> on_disconnected_t;
-	typedef std::function<uint32_t(conn_session_t*, buf_t*, buf_t*)> on_received_t;
-	typedef std::function<uint32_t(conn_session_t*, buf_t*)> get_more_data_t;
+	typedef std::function<uint32_t(conn_session_t&, buf_t&)> on_connected_t;
+	typedef std::function<void(conn_session_t&)> on_disconnected_t;
+	typedef std::function<uint32_t(conn_session_t&, buf_t&, buf_t&)> on_received_t;
+	typedef std::function<uint32_t(conn_session_t&, buf_t&)> get_more_data_t;
 
 public:
 	conn_event_adapter_t() = default;
@@ -62,11 +62,11 @@ public:
 	}
 
 	// Event callback functions.
-	virtual uint32_t on_connected(conn_session_t* session, buf_t* send_buf);
-	virtual void on_disconnected(conn_session_t* session);
-	virtual uint32_t on_received(conn_session_t* session,
-			buf_t* recv_buf, buf_t* send_buf);
-	virtual uint32_t get_more_data(conn_session_t* session, buf_t* send_buf);
+	virtual uint32_t on_connected(conn_session_t& session, buf_t& send_buf);
+	virtual void on_disconnected(conn_session_t& session);
+	virtual uint32_t on_received(conn_session_t& session,
+			buf_t& recv_buf, buf_t& send_buf);
+	virtual uint32_t get_more_data(conn_session_t& session, buf_t& send_buf);
 
 private:
 	on_connected_t m_on_connected;

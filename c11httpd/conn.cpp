@@ -44,12 +44,12 @@ bool conn_t::ipv6() const {
 	return this->m_ipv6;
 }
 
-buf_t* conn_t::recv_buf() {
-	return &this->m_recv_buf;
+buf_t& conn_t::recv_buf() {
+	return this->m_recv_buf;
 }
 
-buf_t* conn_t::send_buf() {
-	return &this->m_send_buf;
+buf_t& conn_t::send_buf() {
+	return this->m_send_buf;
 }
 
 err_t conn_t::recv(size_t* new_recv_size, bool* peer_closed) {

@@ -86,16 +86,16 @@ int main() {
 	//
 	// If Linux signal SIGINT or SIGTERM is recevied, the service will quit.
 	acceptor.run_tcp([](
-		c11httpd::conn_session_t* session,
-		c11httpd::buf_t* recv_buf,
-		c11httpd::buf_t* send_buf) -> uint32_t {
+		c11httpd::conn_session_t& session,
+		c11httpd::buf_t& recv_buf,
+		c11httpd::buf_t& send_buf) -> uint32_t {
 
 		// Add an echo prefix.
-		*send_buf << "[Echo] " << *recv_buf;
+		send_buf << "[Echo] " << recv_buf;
 
 		// We have processed this message, let's clear recv buffer
 		// so that the data will not come back again.
-		recv_buf->clear();
+		recv_buf.clear();
 
 		return 0;
 	});
@@ -111,42 +111,42 @@ int main() {
 class my_event_handler_t : public c11httpd::conn_event_t {
 public:
 	virtual uint32_t on_connected(
-		c11httpd::conn_session_t* session,
-		c11httpd::buf_t* send_buf) {
+		c11httpd::conn_session_t& session,
+		c11httpd::buf_t& send_buf) {
 
-		*send_buf << "Hello, " << session->ip() << ":"
-			<< std::to_string(session->port()) << "\r\n";
+		send_buf << "Hello, " << session.ip() << ":"
+			<< std::to_string(session.port()) << "\r\n";
 
 		return 0;
 	}
 
-	virtual void on_disconnected(c11httpd::conn_session_t* session) {
-		std::cout << session->ip() << ":" << session->port()
+	virtual void on_disconnected(c11httpd::conn_session_t& session) {
+		std::cout << session.ip() << ":" << session.port()
 			<< " was disconnected." << std::endl;
 	}
 
 	virtual uint32_t on_received(
-		c11httpd::conn_session_t* session,
-		c11httpd::buf_t* recv_buf,
-		c11httpd::buf_t* send_buf) {
+		c11httpd::conn_session_t& session,
+		c11httpd::buf_t& recv_buf,
+		c11httpd::buf_t& send_buf) {
 
 		// Add an echo prefix.
-		*send_buf << "[Echo] " << *recv_buf;
+		send_buf << "[Echo] " << recv_buf;
 
 		// We have processed this message, let's clear recv buffer
 		// so that the data will not come back again.
-		recv_buf->clear();
+		recv_buf.clear();
 
 		// Make "get_more_data" event be triggered.
 		return c11httpd::event_result_more_data;
 	}
 
 	virtual uint32_t get_more_data(
-		c11httpd::conn_session_t* session,
-		c11httpd::buf_t* send_buf) {
+		c11httpd::conn_session_t& session,
+		c11httpd::buf_t& send_buf) {
 
-		*send_buf << "Goodbye, " << session->ip() << ":"
-			<< std::to_string(session->port()) << "\r\n";
+		send_buf << "Goodbye, " << session.ip() << ":"
+			<< std::to_string(session.port()) << "\r\n";
 
 		// Let's disconnect the connection.
 		//

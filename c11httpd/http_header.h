@@ -8,6 +8,7 @@
 
 #include "c11httpd/pre__.h"
 #include "c11httpd/fast_str.h"
+#include <iostream>
 
 
 namespace c11httpd {
@@ -97,6 +98,13 @@ private:
 	fast_str_t m_key;
 	fast_str_t m_value;
 };
+
+
+template <typename T, typename Traits>
+inline std::basic_ostream<T, Traits>& operator<<(
+	std::basic_ostream<T, Traits>& ostream, const http_header_t& header) {
+	return ostream << header.key() << ":" << header.value();
+}
 
 
 } // namespace c11httpd.
