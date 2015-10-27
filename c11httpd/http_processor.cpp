@@ -10,27 +10,27 @@
 namespace c11httpd {
 
 
-uint32_t http_processor_t::on_connected(conn_session_t* session, buf_t* send_buf) {
+uint32_t http_processor_t::on_connected(conn_session_t& session, buf_t& send_buf) {
 	return 0;
 }
 
-void http_processor_t::on_disconnected(conn_session_t* session) {
+void http_processor_t::on_disconnected(conn_session_t& session) {
 }
 
-uint32_t http_processor_t::on_received(conn_session_t* session,
-			buf_t* recv_buf, buf_t* send_buf) {
+uint32_t http_processor_t::on_received(conn_session_t& session,
+			buf_t& recv_buf, buf_t& send_buf) {
 
 	// Create a new HTTP session object if it's not created.
-	if (session->get_ctx() == 0) {
-		session->set_ctx(new http_session_t());
+	if (session.get_ctx() == 0) {
+		session.set_ctx(new http_session_t());
 	}
 
 	// Get the HTTP session object.
-	auto http_session = (http_session_t*) session->get_ctx();
+	auto http_session = (http_session_t*) session.get_ctx();
 
 	// Parse HTTP request.
 	size_t request_bytes;
-	const auto parse_result = http_session->request().continue_to_parse(recv_buf, &request_bytes);
+	const auto parse_result = http_session->request().continue_to_parse(&recv_buf, &request_bytes);
 
 	// HTTP request is not fully received, wait for next TCP packet.
 	if (parse_result == http_request_t::parse_result_t::more) {
@@ -43,14 +43,14 @@ uint32_t http_processor_t::on_received(conn_session_t* session,
 	}
 
 	// Process this request.
-	http_session->response().attach(send_buf);
+	http_session->response().attach(&send_buf);
 	const auto result = this->process_i(http_session);
 
 	// We have processed this request, remove it from beginning of the buffer.
 	// Because "request" has some fast_str_t point to the recv buffer,
 	// we need to clear "request" first.
 	http_session->request().clear();
-	recv_buf->erase_front(request_bytes);
+	recv_buf.erase_front(request_bytes);
 
 	if (result == rest_controller_t::result_t::disconnect) {
 		return event_result_disconnect;
@@ -65,7 +65,7 @@ rest_controller_t::result_t http_processor_t::process_i(http_session_t* http_ses
 	return rest_controller_t::result_t::done;
 }
 
-uint32_t http_processor_t::get_more_data(conn_session_t* session, buf_t* send_buf) {
+uint32_t http_processor_t::get_more_data(conn_session_t& session, buf_t& send_buf) {
 	return 0;
 }
 
