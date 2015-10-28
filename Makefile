@@ -13,7 +13,12 @@ TESTTCP_HEADERS=$(wildcard testtcp/*.h)
 TESTTCP_SOURCES=$(wildcard testtcp/*.cpp)
 TESTTCP_OBJECTS=$(patsubst %.cpp,obj/%.o,$(TESTTCP_SOURCES))
 
-all: c11httpd testtcp
+TESTHTTP_EXE=exe/testhttp
+TESTHTTP_HEADERS=$(wildcard testhttp/*.h)
+TESTHTTP_SOURCES=$(wildcard testhttp/*.cpp)
+TESTHTTP_OBJECTS=$(patsubst %.cpp,obj/%.o,$(TESTHTTP_SOURCES))
+
+all: c11httpd testtcp testhttp
 
 c11httpd: c11httpd_dir $(C11HTTPD_OBJECTS)
 	rm -f $(C11HTTPD_LIB)
@@ -23,10 +28,17 @@ testtcp: c11httpd testtcp_dir $(TESTTCP_OBJECTS)
 	rm -f $(TESTTCP_EXE)
 	g++ $(LDFLAGS) -o $(TESTTCP_EXE) $(TESTTCP_OBJECTS) $(C11HTTPD_LIB)
 
+testhttp: c11httpd testhttp_dir $(TESTHTTP_OBJECTS)
+	rm -f $(TESTHTTP_EXE)
+	g++ $(LDFLAGS) -o $(TESTHTTP_EXE) $(TESTHTTP_OBJECTS) $(C11HTTPD_LIB)
+
 obj/c11httpd/%.o: c11httpd/%.cpp $(C11HTTPD_HEADERS)
 	g++ $(CPPFLAGS) -c $< -o $@
 
 obj/testtcp/%.o: testtcp/%.cpp $(C11HTTPD_HEADERS) $(TESTTCP_HEADERS)
+	g++ $(CPPFLAGS) -c $< -o $@
+
+obj/testhttp/%.o: testhttp/%.cpp $(C11HTTPD_HEADERS) $(TESTHTTP_HEADERS)
 	g++ $(CPPFLAGS) -c $< -o $@
 
 c11httpd_dir:
@@ -35,6 +47,10 @@ c11httpd_dir:
 testtcp_dir:
 	mkdir -p exe
 	mkdir -p obj/testtcp
+
+testhttp_dir:
+	mkdir -p exe
+	mkdir -p obj/testhttp
 
 clean:
 	rm -rf exe obj
@@ -52,4 +68,8 @@ echo:
 	@echo "TESTTCP_HEADERS="$(TESTTCP_HEADERS)
 	@echo "TESTTCP_SOURCES="$(TESTTCP_SOURCES)
 	@echo "TESTTCP_OBJECTS="$(TESTTCP_OBJECTS)
+	@echo "TESTHTTP_EXE="$(TESTHTTP_EXE)
+	@echo "TESTHTTP_HEADERS="$(TESTHTTP_HEADERS)
+	@echo "TESTHTTP_SOURCES="$(TESTHTTP_SOURCES)
+	@echo "TESTHTTP_OBJECTS="$(TESTHTTP_OBJECTS)
 

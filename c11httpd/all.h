@@ -23,7 +23,7 @@
 #include "c11httpd/http_processor.h"
 #include "c11httpd/http_request.h"
 #include "c11httpd/http_response.h"
-#include "c11httpd/http_session.h"
+#include "c11httpd/http_conn.h"
 #include "c11httpd/http_status.h"
 #include "c11httpd/link.h"
 #include "c11httpd/listen.h"

@@ -54,6 +54,12 @@ buf_t& buf_t::push_back(const std::string& str) {
 	return *this;
 }
 
+buf_t& buf_t::push_back(const fast_str_t& str) {
+	this->push_back(str.c_str(), str.length());
+
+	return *this;
+}
+
 buf_t& buf_t::push_back(const char* str) {
 	if (str != 0) {
 		this->push_back(str, std::strlen(str));
@@ -64,6 +70,14 @@ buf_t& buf_t::push_back(const char* str) {
 
 buf_t& buf_t::push_back(const buf_t& another) {
 	return this->push_back(another.front(), another.size());
+}
+
+buf_t& buf_t::push_back(int number) {
+	return this->push_back_integer("%d", number);
+}
+
+buf_t& buf_t::push_back(unsigned int number) {
+	return this->push_back_integer("%u", number);
 }
 
 void buf_t::erase_front(size_t erased_size) {

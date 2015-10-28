@@ -8,7 +8,7 @@
 
 #include "c11httpd/pre__.h"
 #include "c11httpd/conn_event.h"
-#include "c11httpd/http_session.h"
+#include "c11httpd/http_conn.h"
 #include "c11httpd/rest_controller.h"
 #include <vector>
 
@@ -47,10 +47,11 @@ private:
 	// Process a HTTP request.
 	//
 	// @return A value of rest_controller_t::result_t.
-	rest_controller_t::result_t process_i(http_session_t* http_session);
+	rest_controller_t::result_t process_i(
+		const conn_session_t& session, http_conn_t* http_conn);
 
 private:
-	const std::vector<rest_controller_t*>& m_controllers;
+	const std::vector<rest_controller_t*> m_controllers;
 };
 
 

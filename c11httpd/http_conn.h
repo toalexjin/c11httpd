@@ -1,5 +1,5 @@
 /**
- * HTTP session.
+ * HTTP connection.
  *
  * Copyright (c) 2015 Alex Jin (toalexjin@hotmail.com)
  */
@@ -8,6 +8,7 @@
 
 #include "c11httpd/pre__.h"
 #include "c11httpd/ctx.h"
+#include "c11httpd/ctx_setter.h"
 #include "c11httpd/fast_str.h"
 #include "c11httpd/http_request.h"
 #include "c11httpd/http_response.h"
@@ -17,13 +18,11 @@
 namespace c11httpd {
 
 
-// HTTP session.
-//
-// Each HTTP connection would have a HTTP session object associated.
-class http_session_t : public ctx_t {
+// HTTP connection.
+class http_conn_t : public ctx_t, public ctx_setter_t {
 public:
-	http_session_t() = default;
-	virtual ~http_session_t() = default;
+	http_conn_t() = default;
+	virtual ~http_conn_t() = default;
 
 	// Clear content.
 	virtual void clear();

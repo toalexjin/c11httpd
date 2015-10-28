@@ -7,7 +7,9 @@
 #pragma once
 
 #include "c11httpd/pre__.h"
+#include "c11httpd/fast_str.h"
 #include <string>
+#include <cstring>
 
 
 namespace c11httpd {
@@ -69,10 +71,17 @@ public:
 
 	buf_t& push_back(const void* data, size_t size);
 	buf_t& push_back(const std::string& str);
+	buf_t& push_back(const fast_str_t& str);
 	buf_t& push_back(const char* str);
 	buf_t& push_back(const buf_t& another);
+	buf_t& push_back(int number);
+	buf_t& push_back(unsigned int number);
 
 	buf_t& operator<<(const std::string& str) {
+		return this->push_back(str);
+	}
+
+	buf_t& operator<<(const fast_str_t& str) {
 		return this->push_back(str);
 	}
 
@@ -82,6 +91,14 @@ public:
 
 	buf_t& operator<<(const buf_t& another) {
 		return this->push_back(another);
+	}
+
+	buf_t& operator<<(int number) {
+		return this->push_back(number);
+	}
+
+	buf_t& operator<<(unsigned int number) {
+		return this->push_back(number);
 	}
 
 	void erase_front(size_t erased_size);
@@ -103,6 +120,19 @@ public:
 	char& at(size_t index) {
 		assert(index < this->m_size);
 		return this->m_buf[index];
+	}
+
+private:
+	template <class T>
+	buf_t& push_back_integer(const char* format, T n) {
+		char buf[32];
+
+		const int str_len = std::snprintf(buf, sizeof(buf), format, n);
+		if (str_len >= 0 && str_len <= sizeof(buf)) {
+			this->push_back(buf, str_len);
+		}
+
+		return *this;
 	}
 
 private:

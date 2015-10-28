@@ -47,7 +47,7 @@ public:
 	virtual ~callable_cpp_t() = default;
 
 	virtual Ret invoke(P1 p1, P2 p2, P3 p3, P4 p4, P5 p5) {
-		return m_self->*m_mem_function(p1, p2, p3, p4, p5);
+		return (m_self->*m_mem_function)(p1, p2, p3, p4, p5);
 	}
 
 private:
