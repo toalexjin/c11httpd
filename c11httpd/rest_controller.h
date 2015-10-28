@@ -7,6 +7,8 @@
 #pragma once
 
 #include "c11httpd/pre__.h"
+#include "c11httpd/conn_session.h"
+#include "c11httpd/ctx_setter.h"
 #include "c11httpd/fast_str.h"
 #include "c11httpd/http_method.h"
 #include "c11httpd/http_request.h"
@@ -24,17 +26,19 @@ namespace c11httpd {
 namespace details {
 
 // Unified routine interface for both C function & C++ member function.
-template <typename Ret, typename P1, typename P2, typename P3>
+template <typename Ret, typename P1, typename P2,
+	typename P3, typename P4, typename P5>
 class callable_t {
 public:
 	virtual ~callable_t() = default;
-	virtual Ret invoke(P1 p1, P2 p2, P3 p3) = 0;
+	virtual Ret invoke(P1 p1, P2 p2, P3 p3, P4 p4, P5 p5) = 0;
 };
 
 // Convert class member function to callable_t.
-template <typename T, typename Ret, typename P1, typename P2, typename P3>
-class callable_cpp_t : public callable_t<Ret, P1, P2, P3> {
-	typedef Ret (T::*mem_function_t)(P1, P2, P3);
+template <typename T, typename Ret, typename P1,
+	typename P2, typename P3, typename P4, typename P5>
+class callable_cpp_t : public callable_t<Ret, P1, P2, P3, P4, P5> {
+	typedef Ret (T::*mem_function_t)(P1, P2, P3, P4, P5);
 
 public:
 	callable_cpp_t(T* self, mem_function_t mem_function)
@@ -42,8 +46,8 @@ public:
 	}
 	virtual ~callable_cpp_t() = default;
 
-	virtual Ret invoke(P1 p1, P2 p2, P3 p3) {
-		return m_self->*m_mem_function(p1, p2, p3);
+	virtual Ret invoke(P1 p1, P2 p2, P3 p3, P4 p4, P5 p5) {
+		return m_self->*m_mem_function(p1, p2, p3, p4, p5);
 	}
 
 private:
@@ -52,16 +56,17 @@ private:
 };
 
 // Convert c function to callable_t.
-template <typename Function, typename Ret, typename P1, typename P2, typename P3>
-class callable_c_t : public callable_t<Ret, P1, P2, P3> {
+template <typename Function, typename Ret, typename P1,
+	typename P2, typename P3, typename P4, typename P5>
+class callable_c_t : public callable_t<Ret, P1, P2, P3, P4, P5> {
 public:
 	callable_c_t(Function function)
 		: m_function(function) {
 	}
 	virtual ~callable_c_t() = default;
 
-	virtual Ret invoke(P1 p1, P2 p2, P3 p3) {
-		return m_function(p1, p2, p3);
+	virtual Ret invoke(P1 p1, P2 p2, P3 p3, P4 p4, P5 p5) {
+		return m_function(p1, p2, p3, p4, p5);
 	}
 
 private:
@@ -91,6 +96,8 @@ public:
 public:
 	// C routine prototype.
 	typedef result_t (*routine_c_t)(
+		ctx_setter_t&, // Context getter/setter.
+		const conn_session_t&, // Connection session.
 		const http_request_t&, // Input request.
 		const std::vector<fast_str_t>&, // URI placeholder values.
 		http_response_t& // Output response.
@@ -99,6 +106,8 @@ public:
 	// C++ routine prototype.
 	typedef std::function<
 		result_t(
+			ctx_setter_t&, // Context getter/setter.
+			const conn_session_t&, // Connection session.
 			const http_request_t&, // Input request.
 			const std::vector<fast_str_t>&, // URI placeholder values.
 			http_response_t& // Output response.
@@ -107,6 +116,8 @@ public:
 
 	typedef details::callable_t<
 		result_t,
+		ctx_setter_t&, // Context getter/setter.
+		const conn_session_t&, // Connection session.
 		const http_request_t&, // Input request.
 		const std::vector<fast_str_t>&, // URI placeholder values.
 		http_response_t& // Output response.
@@ -160,7 +171,8 @@ public:
 				method,
 				std::unique_ptr<routine_callable_t>(
 						new details::callable_c_t<
-							routine_c_t, result_t, const http_request_t&,
+							routine_c_t, result_t, ctx_setter_t&,
+							const conn_session_t&, const http_request_t&,
 							const std::vector<fast_str_t>&, http_response_t&
 						>(routine)
 				)
@@ -178,7 +190,8 @@ public:
 				method,
 				std::unique_ptr<routine_callable_t>(
 						new details::callable_c_t<
-							routine_cpp_t, result_t, const http_request_t&,
+							routine_cpp_t, result_t, ctx_setter_t&,
+							const conn_session_t&, const http_request_t&,
 							const std::vector<fast_str_t>&, http_response_t&
 						>(routine)
 				)
@@ -190,7 +203,9 @@ public:
 	void add(const std::string& uri,
 		http_method_t::type_t method,
 		T* self,
-		result_t (T::*routine)(const http_request_t&, const std::vector<fast_str_t>&, http_response_t&)
+		result_t (T::*routine)(ctx_setter_t&,
+				const conn_session_t&, const http_request_t&,
+				const std::vector<fast_str_t>&, http_response_t&)
 		) {
 		this->m_apis.push_back(
 			api_t(
@@ -198,7 +213,8 @@ public:
 				method,
 				std::unique_ptr<routine_callable_t>(
 					new details::callable_cpp_t<
-						T, result_t, const http_request_t&,
+						T, result_t, ctx_setter_t&,
+						const conn_session_t&, const http_request_t&,
 						const std::vector<fast_str_t>&, http_response_t&
 					>(self, routine)
 				)

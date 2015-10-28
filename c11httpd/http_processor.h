@@ -29,18 +29,18 @@ public:
 	virtual ~http_processor_t() = default;
 
 	virtual uint32_t on_connected(
-		ctx_setter_t& ctx_setter, conn_session_t& session,
+		ctx_setter_t& ctx_setter, const conn_session_t& session,
 		buf_t& send_buf);
 
 	virtual void on_disconnected(
-		ctx_setter_t& ctx_setter, conn_session_t& session);
+		ctx_setter_t& ctx_setter, const conn_session_t& session);
 
 	virtual uint32_t on_received(
-		ctx_setter_t& ctx_setter, conn_session_t& session,
+		ctx_setter_t& ctx_setter, const conn_session_t& session,
 		buf_t& recv_buf, buf_t& send_buf);
 
 	virtual uint32_t get_more_data(
-		ctx_setter_t& ctx_setter, conn_session_t& session,
+		ctx_setter_t& ctx_setter, const conn_session_t& session,
 		buf_t& send_buf);
 
 private:
