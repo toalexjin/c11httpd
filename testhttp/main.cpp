@@ -47,6 +47,12 @@ c11httpd::rest_result_t my_controller_t::handle_root(
 	std::cout << "URI: " << request.uri() << std::endl;
 	std::cout << "HTTP Version: " << request.http_version() << std::endl;
 	std::cout << "Host: " << request.host() << std::endl;
+
+	std::cout << "URI variables:" << std::endl;
+	for (const auto& item : request.vars()) {
+		std::cout << "\t" << item << std::endl;
+	}
+
 	std::cout << "Request Headers:" << std::endl;
 	for (const auto& item : request.headers()) {
 		std::cout << "\t" << item << std::endl;

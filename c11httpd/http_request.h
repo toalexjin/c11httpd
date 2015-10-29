@@ -19,6 +19,39 @@
 namespace c11httpd {
 
 
+// HTTP URI variable.
+class http_var_t {
+public:
+	http_var_t() = default;
+	http_var_t(const fast_str_t& name, const fast_str_t& value)
+		: m_name(name), m_value(value) {
+	}
+
+	const fast_str_t& name() const {
+		return this->m_name;
+	}
+
+	const fast_str_t& value() const {
+		return this->m_value;
+	}
+
+	bool operator<(const http_var_t& another) const {
+		return m_name.cmpi(another.m_name) < 0;
+	}
+
+private:
+	fast_str_t m_name;
+	fast_str_t m_value;
+};
+
+
+template <typename T, typename Traits>
+inline std::basic_ostream<T, Traits>& operator<<(
+	std::basic_ostream<T, Traits>& ostream, const http_var_t& var) {
+	return ostream << var.name() << "=" << var.value();
+}
+
+
 // HTTP request.
 class http_request_t {
 private:
@@ -76,16 +109,25 @@ public:
 		return this->m_http_version;
 	}
 
+	// Get URI variable.
+	//
+	// If the variable does not exist, then NULL will be returned.
+	const fast_str_t* var(const fast_str_t& name) const;
+
+	// Get all URI variables.
+	const std::vector<http_var_t>& vars() const {
+		return this->m_vars;
+	}
+
 	// Get header value.
 	//
-	// If the specified header could not be found,
-	// then an empty string will be returned.
-	const fast_str_t& header(const fast_str_t& key) const;
+	// If the specified header does not exist, then NULL will be returned.
+	const fast_str_t* header(const fast_str_t& key) const;
 
 	// Get host.
-	const fast_str_t& host() const {
-		return this->header("Host");
-	}
+	//
+	// If header "host" does not exist, then an empty string will be returned.
+	const fast_str_t& host() const;
 
 	// Get all headers.
 	const std::vector<http_header_t>& headers() const {
@@ -132,6 +174,7 @@ private:
 	}
 
 	void update_all_fast_str_i(const char* old_recv_buf, const char* new_recv_buf);
+	bool decode_i(const fast_str_t& encoded, fast_str_t* decoded);
 
 private:
 	// Points to the starting location of the buffer.
@@ -139,6 +182,7 @@ private:
 	int m_method;
 	fast_str_t m_uri;
 	fast_str_t m_http_version;
+	std::vector<http_var_t> m_vars;
 
 	// An ascending sorted header list (case insensitive).
 	std::vector<http_header_t> m_headers;

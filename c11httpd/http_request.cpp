@@ -24,6 +24,7 @@ void http_request_t::clear() {
 	this->m_recv_buf = 0;
 	this->m_method = http_method_t::unknown;
 	this->m_uri.clear();
+	this->m_vars.clear();
 	this->m_http_version.clear();
 	this->m_headers.clear();
 	this->m_content = 0;
@@ -33,7 +34,23 @@ void http_request_t::clear() {
 	this->m_split_items.clear();
 }
 
-const fast_str_t& http_request_t::header(const fast_str_t& key) const {
+const fast_str_t* http_request_t::var(const fast_str_t& name) const {
+	assert(!name.empty());
+
+	const http_var_t val(name, fast_str_t());
+	const auto it = std::lower_bound(
+			this->m_vars.cbegin(),
+			this->m_vars.cend(),
+			val);
+
+	if (it != this->m_vars.cend() && !(val < (*it))) {
+		return &((*it).value());
+	} else {
+		return 0;
+	}
+}
+
+const fast_str_t* http_request_t::header(const fast_str_t& key) const {
 	assert(!key.empty());
 
 	const http_header_t val(key, fast_str_t());
@@ -43,10 +60,15 @@ const fast_str_t& http_request_t::header(const fast_str_t& key) const {
 			val);
 
 	if (it != this->m_headers.cend() && !(val < (*it))) {
-		return (*it).value();
+		return &((*it).value());
 	} else {
-		return fast_str_t::empty_string;
+		return 0;
 	}
+}
+
+const fast_str_t& http_request_t::host() const {
+	const fast_str_t* ptr = this->header("Host");
+	return ptr != 0 ? *ptr : fast_str_t::empty_string;
 }
 
 http_request_t::parse_result_t http_request_t::continue_to_parse(
@@ -68,8 +90,8 @@ http_request_t::parse_result_t http_request_t::continue_to_parse(
 	this->m_recv_buf = recv_buf->front();
 
 	fast_str_t line;
-	bool crlf;
 	next_line_t next_result;
+	bool crlf;
 
 	// First line: "GET /aa/bb HTTP/1.1"
 	if (this->m_step < step_uri_done) {
@@ -89,6 +111,7 @@ http_request_t::parse_result_t http_request_t::continue_to_parse(
 			return parse_result_t::failed;
 		}
 
+		// Method.
 		this->m_method = http_method_t::instance().to_integer(this->m_split_items[0]);
 		if (this->m_method == http_method_t::unknown) {
 			return parse_result_t::failed;
@@ -98,8 +121,53 @@ http_request_t::parse_result_t http_request_t::continue_to_parse(
 			return parse_result_t::failed;
 		}
 
-		this->m_uri = this->m_split_items[1];
+		fast_str_t uri, vars;
+		const auto pos = this->m_split_items[1].find('?');
+		if (pos == fast_str_t::npos) {
+			uri = this->m_split_items[1];
+		} else {
+			uri = this->m_split_items[1].substr(0, pos);
+			vars = this->m_split_items[1].substr(pos + 1);
+		}
+
+		// URI.
+		if (!this->decode_i(uri, &this->m_uri)) {
+			return parse_result_t::failed;
+		}
+
+		// HTTP Version.
 		this->m_http_version = this->m_split_items[2];
+
+		// Parse URI variables.
+		if (!vars.empty()) {
+			vars.split("&", &this->m_split_items);
+
+			for (const auto& item : this->m_split_items) {
+				fast_str_t name, value;
+
+				const auto p2 = item.find('=');
+				if (p2 == 0) {
+					return parse_result_t::failed;
+				}
+
+				if (p2 == fast_str_t::npos) {
+					if (!this->decode_i(item, &name)) {
+						return parse_result_t::failed;
+					}
+				}
+				else {
+					if (!this->decode_i(item.substr(0, p2), &name)
+						|| !this->decode_i(item.substr(p2 + 1), &value)) {
+						return parse_result_t::failed;
+					}
+				}
+
+				this->m_vars.push_back(http_var_t(name, value));
+			}
+		}
+
+		// Sort URI variables.
+		std::sort(this->m_vars.begin(), this->m_vars.end());
 
 		this->m_processed_bytes = size_t(msg.c_str() - this->m_recv_buf);
 		this->m_step = step_uri_done;
@@ -140,12 +208,12 @@ http_request_t::parse_result_t http_request_t::continue_to_parse(
 
 	if (this->m_step < step_content_done) {
 		if (this->m_content_length == 0) {
-			const auto& len_str = this->header("Content-Length");
+			const fast_str_t* len_str = this->header("Content-Length");
 
-			if (!len_str.empty()) {
+			if (len_str != 0 && !len_str->empty()) {
 				int32_t n;
 
-				if (!len_str.to_number(&n)
+				if (!len_str->to_number(&n)
 					|| n < 0
 					|| n > 10 * 1024 * 1024) {
 					return parse_result_t::failed;
@@ -238,6 +306,52 @@ void http_request_t::update_all_fast_str_i(const char* old_recv_buf, const char*
 	} else {
 		return;
 	}
+}
+
+bool http_request_t::decode_i(const fast_str_t& encoded, fast_str_t* decoded) {
+	char* ptr = (char*)encoded.c_str();
+	size_t len = 0;
+	size_t i = 0;
+
+	while (i < encoded.length()) {
+		if (ptr[i] == '%') {
+			if ((i + 2) >= encoded.length()) {
+				return false;
+			}
+
+			uint8_t value = 0;
+			for (size_t k = 0; k < 2; ++k) {
+				if (k > 0) {
+					value <<= 4;
+				}
+
+				const char ch = ptr[i + 1 + k];
+				if (ch >= '0' && ch <= '9') {
+					value |= uint8_t(ch - '0');
+				} else if (ch >= 'A' && ch <= 'F') {
+					value |= uint8_t(ch - 'A' + 10);
+				} else if (ch >= 'a' && ch <= 'f') {
+					value |= uint8_t(ch - 'a' + 10);
+				} else {
+					return false;
+				}
+			}
+
+			ptr[len] = char(value);
+			++len;
+			i += 3;
+		} else {
+			if (len != i) {
+				ptr[len] = ptr[i];
+			}
+
+			++len;
+			++i;
+		}
+	}
+
+	decoded->set(ptr, len);
+	return true;
 }
 
 
