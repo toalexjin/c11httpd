@@ -24,8 +24,9 @@ void http_request_t::clear() {
 	this->m_recv_buf = 0;
 	this->m_method = http_method_t::unknown;
 	this->m_uri.clear();
-	this->m_vars.clear();
 	this->m_http_version.clear();
+	this->m_vars.clear();
+	this->m_hostname.clear();
 	this->m_headers.clear();
 	this->m_content = 0;
 	this->m_content_length = 0;
@@ -64,11 +65,6 @@ const fast_str_t* http_request_t::header(const fast_str_t& key) const {
 	} else {
 		return 0;
 	}
-}
-
-const fast_str_t& http_request_t::host() const {
-	const fast_str_t* ptr = this->header("Host");
-	return ptr != 0 ? *ptr : fast_str_t::empty_string;
 }
 
 http_request_t::parse_result_t http_request_t::continue_to_parse(
@@ -122,7 +118,7 @@ http_request_t::parse_result_t http_request_t::continue_to_parse(
 		}
 
 		fast_str_t uri, vars;
-		const auto pos = this->m_split_items[1].find('?');
+		const auto pos = this->m_split_items[1].find_first_of('?');
 		if (pos == fast_str_t::npos) {
 			uri = this->m_split_items[1];
 		} else {
@@ -145,7 +141,7 @@ http_request_t::parse_result_t http_request_t::continue_to_parse(
 			for (const auto& item : this->m_split_items) {
 				fast_str_t name, value;
 
-				const auto p2 = item.find('=');
+				const auto p2 = item.find_first_of('=');
 				if (p2 == 0) {
 					return parse_result_t::failed;
 				}
@@ -203,6 +199,11 @@ http_request_t::parse_result_t http_request_t::continue_to_parse(
 
 			m_headers.push_back(http_header_t(key, value));
 			this->m_processed_bytes = size_t(msg.c_str() - this->m_recv_buf);
+
+			// Host name.
+			if (this->m_hostname.empty() && key.cmpi("Host") == 0) {
+				this->m_hostname = value.before(':');
+			}
 		}
 	}
 

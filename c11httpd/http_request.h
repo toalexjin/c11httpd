@@ -23,6 +23,9 @@ namespace c11httpd {
 class http_var_t {
 public:
 	http_var_t() = default;
+	http_var_t(const http_var_t&) = default;
+	http_var_t& operator=(const http_var_t&) = default;
+
 	http_var_t(const fast_str_t& name, const fast_str_t& value)
 		: m_name(name), m_value(value) {
 	}
@@ -35,8 +38,9 @@ public:
 		return this->m_value;
 	}
 
+	// Case sensitive.
 	bool operator<(const http_var_t& another) const {
-		return m_name.cmpi(another.m_name) < 0;
+		return m_name.cmp(another.m_name) < 0;
 	}
 
 private:
@@ -124,10 +128,10 @@ public:
 	// If the specified header does not exist, then NULL will be returned.
 	const fast_str_t* header(const fast_str_t& key) const;
 
-	// Get host.
-	//
-	// If header "host" does not exist, then an empty string will be returned.
-	const fast_str_t& host() const;
+	// Get host name (Similar to request header "Host:???", but does not have port number)
+	const fast_str_t& hostname() const {
+		return this->m_hostname;
+	}
 
 	// Get all headers.
 	const std::vector<http_header_t>& headers() const {
@@ -177,12 +181,20 @@ private:
 	bool decode_i(const fast_str_t& encoded, fast_str_t* decoded);
 
 private:
+	// Remove copy constructor & operator=().
+	http_request_t(const http_request_t&) = delete;
+	http_request_t& operator=(const http_request_t&) = delete;
+
+private:
 	// Points to the starting location of the buffer.
 	const char* m_recv_buf;
 	int m_method;
 	fast_str_t m_uri;
 	fast_str_t m_http_version;
 	std::vector<http_var_t> m_vars;
+
+	// Similar to "Host:???", but does not have port number.
+	fast_str_t m_hostname;
 
 	// An ascending sorted header list (case insensitive).
 	std::vector<http_header_t> m_headers;

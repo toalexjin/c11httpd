@@ -46,7 +46,7 @@ c11httpd::rest_result_t my_controller_t::handle_root(
 	std::cout << "Method: " << c11httpd::http_method_t::instance().to_str(request.method()) << std::endl;
 	std::cout << "URI: " << request.uri() << std::endl;
 	std::cout << "HTTP Version: " << request.http_version() << std::endl;
-	std::cout << "Host: " << request.host() << std::endl;
+	std::cout << "Host Name: " << request.hostname() << std::endl;
 
 	std::cout << "URI variables:" << std::endl;
 	for (const auto& item : request.vars()) {

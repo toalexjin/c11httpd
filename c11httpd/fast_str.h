@@ -101,7 +101,6 @@ public:
 	// @return Number of items.
 	size_t split(const char* delims, std::vector<fast_str_t>* items) const;
 
-	size_t find(char ch) const;
 	size_t find_first_of(char ch, size_t pos = 0) const;
 	size_t find_first_of(const char* delims, size_t pos = 0) const;
 	size_t find_first_not_of(char ch, size_t pos = 0) const;
@@ -115,6 +114,18 @@ public:
 
 	// Trim both sides.
 	size_t trim(const char* delims = " \t");
+
+	// Return sub-string before a specified character.
+	//
+	// If the specified character could not be found,
+	// then the entire string will be returned.
+	fast_str_t before(char ch) const;
+
+	// Return sub-string after a specified character.
+	//
+	// If the specified character could not be found,
+	// then an empty string will be returned.
+	fast_str_t after(char ch) const;
 
 	bool to_number(int32_t* value) const;
 	bool to_number(uint32_t* value) const;

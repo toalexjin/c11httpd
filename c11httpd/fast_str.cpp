@@ -80,16 +80,6 @@ size_t fast_str_t::split(const char* delims, std::vector<fast_str_t>* items) con
 	return items->size();
 }
 
-size_t fast_str_t::find(char ch) const {
-	for (size_t i = 0; i < this->m_len; ++i) {
-		if (this->m_str[i] == ch) {
-			return i;
-		}
-	}
-
-	return npos;
-}
-
 size_t fast_str_t::find_first_of(char ch, size_t pos) const {
 	for (size_t i = pos; i < this->m_len; ++i) {
 		if (ch == this->m_str[i]) {
@@ -183,6 +173,24 @@ size_t fast_str_t::trim_right(const char* delims) {
 
 size_t fast_str_t::trim(const char* delims) {
 	return this->trim_left(delims) + this->trim_right(delims);
+}
+
+fast_str_t fast_str_t::before(char ch) const {
+	const auto pos = this->find_first_of(ch);
+	if (pos == fast_str_t::npos) {
+		return *this;
+	} else {
+		return this->substr(0, pos);
+	}
+}
+
+fast_str_t fast_str_t::after(char ch) const {
+	const auto pos = this->find_first_of(ch);
+	if (pos == fast_str_t::npos) {
+		return fast_str_t();
+	} else {
+		return this->substr(pos + 1);
+	}
 }
 
 bool fast_str_t::to_number(int32_t* value) const {
