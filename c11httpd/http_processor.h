@@ -46,9 +46,10 @@ public:
 private:
 	// Process a HTTP request.
 	//
-	// @return A value of rest_controller_t::result_t.
-	rest_controller_t::result_t process_i(
-		const conn_session_t& session, http_conn_t* http_conn);
+	// @return A value of rest_result_t.
+	rest_result_t process_i(
+		const conn_session_t& session, http_conn_t* http_conn,
+		buf_t* send_buf);
 
 private:
 	const std::vector<rest_controller_t*> m_controllers;

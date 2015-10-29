@@ -18,6 +18,11 @@ namespace c11httpd {
 
 
 // HTTP response.
+//
+// http_response_t enables you to write response header & content
+// with serialization (operator<<) easily. The only limitation
+// is that you must write response header before writing response content.
+// However, response status code is allowed to update at any time.
 class http_response_t {
 public:
 	http_response_t() {
@@ -30,6 +35,7 @@ public:
 	void clear() {
 		this->m_send_buf = 0;
 		this->m_code = http_status_t::ok;
+		this->m_code_pos = 0;
 		this->m_header_pos = 0;
 		this->m_content_len_pos = 0;
 		this->m_content_pos = 0;
@@ -45,13 +51,29 @@ public:
 		this->clear();
 	}
 
-	// Write HTTP status code.
+	// Get HTTP status code.
+	int code() const {
+		return this->m_code;
+	}
+
+	// Update response status code.
+	//
+	// Unlike response header & content, response status code
+	// is permitted to update at any time.
 	http_response_t& code(int code);
 
-	// Write header.
+	// Write response header.
+	//
+	// You must write response header before writing response content.
+	// <BR>
+	//
+	// Note that you do not need to write header "Content-Length"
+	// because it's handled by http_response_t automatically.
 	http_response_t& operator<<(const http_header_t& header);
 
-	// Write content.
+	// Write response content.
+	//
+	// You must write response header before writing response content.
 	http_response_t& write(const void* data, size_t size);
 	http_response_t& operator<<(const char* str);
 	http_response_t& operator<<(const std::string& str);
@@ -61,7 +83,7 @@ private:
 	http_response_t(const http_response_t&) = delete;
 	http_response_t& operator=(const http_response_t&) = delete;
 
-	void write_code_i(int code = http_status_t::ok);
+	void write_code_i(int code = http_status_t::ok, const char* http_version = "HTTP/1.1");
 	void complete_header_i();
 	void complete_content_i();
 
@@ -71,10 +93,13 @@ private:
 	// HTTP status code.
 	int m_code;
 
+	// Where response status code is located.
+	size_t m_code_pos;
+
 	// Where response header is located.
 	size_t m_header_pos;
 
-	// Where content length is located (totally 8 characters available).
+	// Where content length is located (totally 8 characters available to write).
 	size_t m_content_len_pos;
 
 	// Where response content is located.

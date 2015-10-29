@@ -17,14 +17,14 @@ namespace c11httpd {
 // HTTP method.
 class http_method_t {
 public:
-	enum type_t {
+	enum {
 		unknown = 0,
-		get,
-		post,
-		put,
-		del,
-		options,
-		head
+		get = 1,
+		post = 2,
+		put = 3,
+		del = 4,
+		options = 5,
+		head = 6
 	};
 
 public:
@@ -32,11 +32,11 @@ public:
 		return st_instance;
 	}
 
-	// Map a method string to enumeration value.
-	type_t map(const fast_str_t& str) const {
-		const auto it = m_types.find(str);
-		return it == m_types.end() ? unknown : (*it).second;
-	}
+	// Map string to integer value.
+	int to_integer(const fast_str_t& str) const;
+
+	// Map integer value to string.
+	const fast_str_t& to_str(int method);
 
 private:
 	http_method_t();
@@ -47,7 +47,8 @@ private:
 	static http_method_t st_instance;
 
 private:
-	const std::map<fast_str_t, type_t, fast_str_less_nocase_t> m_types;
+	const std::map<fast_str_t, int, fast_str_less_nocase_t> m_str_index;
+	fast_str_t m_integer_index[head + 1];
 };
 
 

@@ -103,7 +103,7 @@ private:
 template <typename T, typename Traits>
 inline std::basic_ostream<T, Traits>& operator<<(
 	std::basic_ostream<T, Traits>& ostream, const http_header_t& header) {
-	return ostream << header.key() << ":" << header.value();
+	return ostream << header.key() << ": " << header.value();
 }
 
 

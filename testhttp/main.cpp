@@ -20,7 +20,7 @@ class my_controller_t : public c11httpd::rest_controller_t {
 public:
 	my_controller_t();
 
-	c11httpd::rest_controller_t::result_t handle_root(
+	c11httpd::rest_result_t handle_root(
 			c11httpd::ctx_setter_t& ctx_setter,
 			const c11httpd::conn_session_t& session,
 			const c11httpd::http_request_t& request,
@@ -35,25 +35,36 @@ my_controller_t::my_controller_t() {
 	this->add("/*", c11httpd::http_method_t::del, this, &my_controller_t::handle_root);
 }
 
-c11httpd::rest_controller_t::result_t my_controller_t::handle_root(
+c11httpd::rest_result_t my_controller_t::handle_root(
 		c11httpd::ctx_setter_t& ctx_setter,
 		const c11httpd::conn_session_t& session,
 		const c11httpd::http_request_t& request,
 		const std::vector<c11httpd::fast_str_t>& placeholders,
 		c11httpd::http_response_t& response) {
 
-	std::cout << session << std::endl;
-	std::cout << "Request headers:" << std::endl;
+	std::cout << "IP address: " << session << std::endl;
+	std::cout << "Method: " << c11httpd::http_method_t::instance().to_str(request.method()) << std::endl;
+	std::cout << "URI: " << request.uri() << std::endl;
+	std::cout << "HTTP Version: " << request.http_version() << std::endl;
+	std::cout << "Host: " << request.host() << std::endl;
+	std::cout << "Request Headers:" << std::endl;
 	for (const auto& item : request.headers()) {
 		std::cout << "\t" << item << std::endl;
 	}
+
+	std::cout << "Content:" << std::endl;
+	std::cout << "{";
+	std::cout.write(request.content(), request.content_length());
+	std::cout << "}" << std::endl;
+
+	std::cout << std::endl;
 
 	response.code(201);
 	response << c11httpd::http_header_t("HEADER-1", "header 1 value");
 	response << c11httpd::http_header_t("Content-Type", "application/json;charset=UTF-8");
 	response << "{\"hello\":\"world\",\"value\":true}";
 
-	return c11httpd::rest_controller_t::result_t::done;
+	return c11httpd::rest_result_t::done;
 }
 
 

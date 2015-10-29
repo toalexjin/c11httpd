@@ -76,26 +76,27 @@ private:
 } // namespace details.
 
 
+// RESTFul API result.
+enum class rest_result_t {
+	// The request has been fully processed
+	// and its result is saved to "response".
+	done = 0,
+
+	// The request has fatal error, no response
+	// was generated and the connection
+	// needs to be closed immediately.
+	disconnect = 1
+};
+
+
 // RESTFul API controller.
 //
 // YOu could use this controller class directly,
 // or create a sub-class inherits from this class.
 class rest_controller_t {
 public:
-	enum class result_t {
-		// The request has been fully processed
-		// and its result is saved to "response".
-		done = 0,
-
-		// The request has fatal error, no response
-		// was generated and the connection
-		// needs to be closed immediately.
-		disconnect = 1
-	};
-
-public:
 	// C routine prototype.
-	typedef result_t (*routine_c_t)(
+	typedef rest_result_t (*routine_c_t)(
 		ctx_setter_t&, // Context getter/setter.
 		const conn_session_t&, // Connection session.
 		const http_request_t&, // Input request.
@@ -105,7 +106,7 @@ public:
 
 	// C++ routine prototype.
 	typedef std::function<
-		result_t(
+		rest_result_t(
 			ctx_setter_t&, // Context getter/setter.
 			const conn_session_t&, // Connection session.
 			const http_request_t&, // Input request.
@@ -115,7 +116,7 @@ public:
 	> routine_cpp_t;
 
 	typedef details::callable_t<
-		result_t,
+		rest_result_t,
 		ctx_setter_t&, // Context getter/setter.
 		const conn_session_t&, // Connection session.
 		const http_request_t&, // Input request.
@@ -125,7 +126,7 @@ public:
 
 	typedef std::tuple<
 		std::string, // URI. e.g. "/company/employee/?".
-		http_method_t::type_t, // Method, e.g.GET/PUT/POST/DELETE.
+		int, // Method, e.g.GET/PUT/POST/DELETE.
 		std::unique_ptr<routine_callable_t> // Routine.
 	> api_t;
 
@@ -162,7 +163,7 @@ public:
 	}
 
 	void add(const std::string& uri,
-		http_method_t::type_t method,
+		int method,
 		const routine_c_t& routine
 		) {
 		this->m_apis.push_back(
@@ -171,7 +172,7 @@ public:
 				method,
 				std::unique_ptr<routine_callable_t>(
 						new details::callable_c_t<
-							routine_c_t, result_t, ctx_setter_t&,
+							routine_c_t, rest_result_t, ctx_setter_t&,
 							const conn_session_t&, const http_request_t&,
 							const std::vector<fast_str_t>&, http_response_t&
 						>(routine)
@@ -181,7 +182,7 @@ public:
 	}
 
 	void add(const std::string& uri,
-		http_method_t::type_t method,
+		int method,
 		const routine_cpp_t& routine
 		) {
 		this->m_apis.push_back(
@@ -190,7 +191,7 @@ public:
 				method,
 				std::unique_ptr<routine_callable_t>(
 						new details::callable_c_t<
-							routine_cpp_t, result_t, ctx_setter_t&,
+							routine_cpp_t, rest_result_t, ctx_setter_t&,
 							const conn_session_t&, const http_request_t&,
 							const std::vector<fast_str_t>&, http_response_t&
 						>(routine)
@@ -201,9 +202,9 @@ public:
 
 	template <typename T>
 	void add(const std::string& uri,
-		http_method_t::type_t method,
+		int method,
 		T* self,
-		result_t (T::*routine)(ctx_setter_t&,
+		rest_result_t (T::*routine)(ctx_setter_t&,
 				const conn_session_t&, const http_request_t&,
 				const std::vector<fast_str_t>&, http_response_t&)
 		) {
@@ -213,7 +214,7 @@ public:
 				method,
 				std::unique_ptr<routine_callable_t>(
 					new details::callable_cpp_t<
-						T, result_t, ctx_setter_t&,
+						T, rest_result_t, ctx_setter_t&,
 						const conn_session_t&, const http_request_t&,
 						const std::vector<fast_str_t>&, http_response_t&
 					>(self, routine)

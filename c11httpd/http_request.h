@@ -61,6 +61,21 @@ public:
 	// Clear content but do not free buffer.
 	void clear();
 
+	// Get method.
+	int method() const {
+		return this->m_method;
+	}
+
+	// Get URI.
+	const fast_str_t& uri() const {
+		return this->m_uri;
+	}
+
+	// Get HTTP version.
+	const fast_str_t& http_version() const {
+		return this->m_http_version;
+	}
+
 	// Get header value.
 	//
 	// If the specified header could not be found,
@@ -77,10 +92,12 @@ public:
 		return this->m_headers;
 	}
 
+	// Get content.
 	const char* content() const {
 		return this->m_content;
 	}
 
+	// Get content size.
 	size_t content_length() const {
 		return this->m_content_length;
 	}
@@ -119,7 +136,7 @@ private:
 private:
 	// Points to the starting location of the buffer.
 	const char* m_recv_buf;
-	http_method_t::type_t m_method;
+	int m_method;
 	fast_str_t m_uri;
 	fast_str_t m_http_version;
 

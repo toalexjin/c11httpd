@@ -47,9 +47,7 @@ uint32_t http_processor_t::on_received(
 	}
 
 	// Process this request.
-	http_conn->response().attach(&send_buf);
-	const auto result = this->process_i(session, http_conn);
-	http_conn->response().detach();
+	const auto result = this->process_i(session, http_conn, &send_buf);
 
 	// We have processed this request, remove it from beginning of the buffer.
 	// Because "request" has some fast_str_t point to the recv buffer,
@@ -57,23 +55,32 @@ uint32_t http_processor_t::on_received(
 	http_conn->request().clear();
 	recv_buf.erase_front(request_bytes);
 
-	if (result == rest_controller_t::result_t::disconnect) {
+	if (result == rest_result_t::disconnect) {
 		return event_result_disconnect;
 	}
 
 	return 0;
 }
 
-rest_controller_t::result_t http_processor_t::process_i(
-	const conn_session_t& session, http_conn_t* http_conn) {
+rest_result_t http_processor_t::process_i(
+	const conn_session_t& session, http_conn_t* http_conn,
+	buf_t* send_buf) {
 	assert(http_conn != 0);
 
 	rest_controller_t* controller = *(this->m_controllers.begin());
 	const rest_controller_t::api_t& api = *(controller->apis().begin());
 
-	return std::get<2>(api)->invoke(*http_conn, session,
+	// Attach response object to send_buf.
+	http_conn->response().attach(send_buf);
+
+	const auto result = std::get<2>(api)->invoke(*http_conn, session,
 		http_conn->request(), std::vector<fast_str_t>(),
 		http_conn->response());
+
+	// Detach response object from send_buf.
+	http_conn->response().detach();
+
+	return result;
 }
 
 uint32_t http_processor_t::get_more_data(

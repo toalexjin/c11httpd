@@ -89,7 +89,7 @@ http_request_t::parse_result_t http_request_t::continue_to_parse(
 			return parse_result_t::failed;
 		}
 
-		this->m_method = http_method_t::instance().map(this->m_split_items[0]);
+		this->m_method = http_method_t::instance().to_integer(this->m_split_items[0]);
 		if (this->m_method == http_method_t::unknown) {
 			return parse_result_t::failed;
 		}
