@@ -40,6 +40,7 @@ public:
 	void clear() {
 		this->m_config = 0;
 		this->m_request = 0;
+		this->m_default_response_content_type = 0;
 		this->m_send_buf = 0;
 		this->m_code = http_status_t::ok;
 		this->m_code_pos = 0;
@@ -47,14 +48,18 @@ public:
 		this->m_content_len_pos = 0;
 		this->m_content_pos = 0;
 		this->m_split_items.clear();
+		this->m_content_type_done = false;
 	}
 
 	void attach(const config_t* cfg,
-		const http_request_t* request, buf_t* send_buf) {
+		const http_request_t* request,
+		const std::string* default_response_content_type,
+		buf_t* send_buf) {
 		this->clear();
 
 		this->m_config = cfg;
 		this->m_request = request;
+		this->m_default_response_content_type = default_response_content_type;
 		this->m_send_buf = send_buf;
 	}
 
@@ -111,6 +116,7 @@ private:
 private:
 	const config_t* m_config;
 	const http_request_t* m_request;
+	const std::string* m_default_response_content_type;
 	buf_t* m_send_buf;
 
 	// HTTP status code.
@@ -130,6 +136,9 @@ private:
 
 	// Used as buffer.
 	std::vector<fast_str_t> m_split_items;
+
+	// If "Content-Type:???" has been written.
+	bool m_content_type_done;
 };
 
 

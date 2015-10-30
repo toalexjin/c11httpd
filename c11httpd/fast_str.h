@@ -127,6 +127,11 @@ public:
 	// then an empty string will be returned.
 	fast_str_t after(char ch) const;
 
+	// Convert fast_str_t to std::string.
+	std::string to_str() const {
+		return std::string(m_str, m_len);
+	}
+
 	bool to_number(int32_t* value) const;
 	bool to_number(uint32_t* value) const;
 

@@ -62,11 +62,14 @@ public:
 public:
 	static const fast_str_t Connection;
 	static const fast_str_t Content_Length;
+	static const fast_str_t Content_Type;
 	static const fast_str_t Date;
 	static const fast_str_t Host;
 	static const fast_str_t HTTP_VERSION_1_1;
+	static const fast_str_t JSON_UTF8;
 	static const fast_str_t Keep_Alive;
 	static const fast_str_t Server;
+	static const fast_str_t XML_UTF8;
 
 public:
 	http_header_t() = default;

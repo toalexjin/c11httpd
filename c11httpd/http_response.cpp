@@ -41,6 +41,13 @@ http_response_t& http_response_t::operator<<(const http_header_t& header) {
 		this->write_code_i();
 	}
 
+	// Mark Content-Type:??? as written.
+	if (!this->m_content_type_done) {
+		if (header.key().cmpi(http_header_t::Content_Type) == 0) {
+			this->m_content_type_done = true;
+		}
+	}
+
 	*m_send_buf << header.key() << ": " << header.value() << "\r\n";
 
 	return *this;
@@ -111,7 +118,7 @@ void http_response_t::complete_header_i() {
 	assert(m_header_pos != 0);
 	assert(m_content_pos == 0);
 
-	// Connection: Keep-Alive
+	// "Connection: keep-alive"
 	if (this->m_config->enabled(config_t::keep_alive)) {
 		const fast_str_t* value = this->m_request->header(http_header_t::Connection);
 		if (value != 0) {
@@ -127,7 +134,7 @@ void http_response_t::complete_header_i() {
 		}
 	}
 
-	// Date:???
+	// "Date: ???"
 	if (this->m_config->enabled(config_t::response_date)) {
 		char str[utility_t::response_date_len];
 
@@ -135,8 +142,16 @@ void http_response_t::complete_header_i() {
 		*m_send_buf << http_header_t::Date << ": " << str << "\r\n";
 	}
 
-	// "Server:c11httpd"
+	// "Server: c11httpd"
 	*m_send_buf << http_header_t::Server << ": c11httpd\r\n";
+
+	// "Content-Type: ???"
+	if (!this->m_content_type_done
+		&& this->m_default_response_content_type != 0
+		&& !this->m_default_response_content_type->empty()) {
+		*m_send_buf << http_header_t::Content_Type << ": "
+				<< *m_default_response_content_type << "\r\n";
+	}
 
 	// "Content-Length:       0"
 	*m_send_buf << http_header_t::Content_Length << ":";

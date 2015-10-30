@@ -115,7 +115,9 @@ public:
 	typedef std::tuple<
 		std::string, // URI. e.g. "/company/employee/?".
 		int, // Method, e.g.GET/PUT/POST/DELETE.
-		std::unique_ptr<routine_callable_t> // Routine.
+		std::unique_ptr<routine_callable_t>, // Routine.
+		std::string, // (Optional) Request "Content-Type"
+		std::string // (Optional) Response "Content-Type"
 	> api_t;
 
 public:
@@ -152,7 +154,9 @@ public:
 
 	void add(const std::string& uri,
 		int method,
-		const routine_c_t& routine
+		const routine_c_t& routine,
+		const std::string& request_content_type = std::string(),
+		const std::string& response_content_type = std::string()
 		) {
 		this->m_apis.push_back(
 			api_t(
@@ -164,14 +168,18 @@ public:
 							const conn_session_t&, const http_request_t&,
 							const std::vector<fast_str_t>&, http_response_t&
 						>(routine)
-				)
+				),
+				request_content_type,
+				response_content_type
 			)
 		);
 	}
 
 	void add(const std::string& uri,
 		int method,
-		const routine_cpp_t& routine
+		const routine_cpp_t& routine,
+		const std::string& request_content_type = std::string(),
+		const std::string& response_content_type = std::string()
 		) {
 		this->m_apis.push_back(
 			api_t(
@@ -183,7 +191,9 @@ public:
 							const conn_session_t&, const http_request_t&,
 							const std::vector<fast_str_t>&, http_response_t&
 						>(routine)
-				)
+				),
+				request_content_type,
+				response_content_type
 			)
 		);
 	}
@@ -194,7 +204,9 @@ public:
 		T* self,
 		rest_result_t (T::*routine)(ctx_setter_t&,
 				const conn_session_t&, const http_request_t&,
-				const std::vector<fast_str_t>&, http_response_t&)
+				const std::vector<fast_str_t>&, http_response_t&),
+		const std::string& request_content_type = std::string(),
+		const std::string& response_content_type = std::string()
 		) {
 		this->m_apis.push_back(
 			api_t(
@@ -206,7 +218,9 @@ public:
 						const conn_session_t&, const http_request_t&,
 						const std::vector<fast_str_t>&, http_response_t&
 					>(self, routine)
-				)
+				),
+				request_content_type,
+				response_content_type
 			)
 		);
 	}

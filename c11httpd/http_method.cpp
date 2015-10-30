@@ -17,6 +17,7 @@ http_method_t http_method_t::st_instance;
 http_method_t::http_method_t()
 	: m_str_index({
 		{"UNKNOWN", http_method_t::unknown},
+		{"ANY", http_method_t::any},
 		{"GET", http_method_t::get},
 		{"POST", http_method_t::post},
 		{"PUT", http_method_t::put},

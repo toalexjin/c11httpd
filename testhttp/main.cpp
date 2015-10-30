@@ -29,10 +29,9 @@ public:
 };
 
 my_controller_t::my_controller_t() {
-	this->add("/*", c11httpd::http_method_t::get, this, &my_controller_t::handle_root);
-	this->add("/*", c11httpd::http_method_t::post, this, &my_controller_t::handle_root);
-	this->add("/*", c11httpd::http_method_t::put, this, &my_controller_t::handle_root);
-	this->add("/*", c11httpd::http_method_t::del, this, &my_controller_t::handle_root);
+	this->add("/*", c11httpd::http_method_t::any, this,
+		&my_controller_t::handle_root, "",
+		c11httpd::http_header_t::JSON_UTF8.to_str());
 }
 
 c11httpd::rest_result_t my_controller_t::handle_root(
@@ -65,10 +64,9 @@ c11httpd::rest_result_t my_controller_t::handle_root(
 
 	std::cout << std::endl;
 
-	response.code(201);
 	response << c11httpd::http_header_t("HEADER-1", "header 1 value");
-	response << c11httpd::http_header_t("Content-Type", "application/json;charset=UTF-8");
 	response << "{\"hello\":\"world\",\"value\":true}";
+	response.code(202);
 
 	return c11httpd::rest_result_t::done;
 }

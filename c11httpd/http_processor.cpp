@@ -79,7 +79,8 @@ rest_result_t http_processor_t::process_i(
 	const rest_controller_t::api_t& api = *(controller->apis().begin());
 
 	// Attach response object to send_buf.
-	http_conn->response().attach(&cfg, &(http_conn->request()), send_buf);
+	http_conn->response().attach(&cfg,
+		&(http_conn->request()), &(std::get<4>(api)), send_buf);
 
 	const auto result = std::get<2>(api)->invoke(*http_conn, session,
 		http_conn->request(), std::vector<fast_str_t>(),

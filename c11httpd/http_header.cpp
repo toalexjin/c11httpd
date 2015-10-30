@@ -11,14 +11,16 @@
 namespace c11httpd {
 
 
-
 const fast_str_t http_header_t::Connection = "Connection";
 const fast_str_t http_header_t::Content_Length = "Content-Length";
+const fast_str_t http_header_t::Content_Type = "Content-Type";
 const fast_str_t http_header_t::Date = "Date";
 const fast_str_t http_header_t::Host = "Host";
 const fast_str_t http_header_t::HTTP_VERSION_1_1 = "HTTP/1.1";
+const fast_str_t http_header_t::JSON_UTF8 = "application/json; charset=UTF-8";
 const fast_str_t http_header_t::Keep_Alive = "keep-alive";
 const fast_str_t http_header_t::Server = "Server";
+const fast_str_t http_header_t::XML_UTF8 = "application/xml; charset=UTF-8";
 
 
 // Single instance.

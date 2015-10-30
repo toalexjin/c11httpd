@@ -19,12 +19,13 @@ class http_method_t {
 public:
 	enum {
 		unknown = 0,
-		get = 1,
-		post = 2,
-		put = 3,
-		del = 4,
-		options = 5,
-		head = 6
+		any = 1,
+		get = 2,
+		post = 3,
+		put = 4,
+		del = 5,
+		options = 6,
+		head = 7
 	};
 
 public:
