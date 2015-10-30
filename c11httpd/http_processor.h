@@ -7,6 +7,7 @@
 #pragma once
 
 #include "c11httpd/pre__.h"
+#include "c11httpd/config.h"
 #include "c11httpd/conn_event.h"
 #include "c11httpd/http_conn.h"
 #include "c11httpd/rest_controller.h"
@@ -29,18 +30,22 @@ public:
 	virtual ~http_processor_t() = default;
 
 	virtual uint32_t on_connected(
-		ctx_setter_t& ctx_setter, const conn_session_t& session,
+		ctx_setter_t& ctx_setter, const config_t& cfg,
+		const conn_session_t& session,
 		buf_t& send_buf);
 
 	virtual void on_disconnected(
-		ctx_setter_t& ctx_setter, const conn_session_t& session);
+		ctx_setter_t& ctx_setter, const config_t& cfg,
+		const conn_session_t& session);
 
 	virtual uint32_t on_received(
-		ctx_setter_t& ctx_setter, const conn_session_t& session,
+		ctx_setter_t& ctx_setter, const config_t& cfg,
+		const conn_session_t& session,
 		buf_t& recv_buf, buf_t& send_buf);
 
 	virtual uint32_t get_more_data(
-		ctx_setter_t& ctx_setter, const conn_session_t& session,
+		ctx_setter_t& ctx_setter, const config_t& cfg,
+		const conn_session_t& session,
 		buf_t& send_buf);
 
 private:
@@ -48,8 +53,8 @@ private:
 	//
 	// @return A value of rest_result_t.
 	rest_result_t process_i(
-		const conn_session_t& session, http_conn_t* http_conn,
-		buf_t* send_buf);
+		const config_t& cfg, const conn_session_t& session,
+		http_conn_t* http_conn, buf_t* send_buf);
 
 private:
 	const std::vector<rest_controller_t*> m_controllers;

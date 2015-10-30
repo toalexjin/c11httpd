@@ -93,7 +93,7 @@ public:
 
 public:
 	http_request_t();
-	virtual ~http_request_t() = default;
+	~http_request_t() = default;
 
 	// Clear content but do not free buffer.
 	void clear();

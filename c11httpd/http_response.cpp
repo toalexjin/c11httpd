@@ -12,8 +12,9 @@ namespace c11httpd {
 
 
 const std::set<fast_str_t, fast_str_less_nocase_t> http_response_t::st_protected_headers = {
-	"Content-Length",
-	"Connection"
+	http_header_t::Connection,
+	http_header_t::Content_Length,
+	http_header_t::Server
 };
 
 
@@ -75,7 +76,7 @@ http_response_t& http_response_t::operator<<(const fast_str_t& str) {
 	return this->write(str.c_str(), str.length());
 }
 
-void http_response_t::write_code_i(int code, const char* http_version) {
+void http_response_t::write_code_i(int code, const fast_str_t& http_version) {
 	// Range [100,599]
 	assert(code >= 100 && code <= 599);
 
@@ -108,11 +109,27 @@ void http_response_t::complete_header_i() {
 	assert(m_header_pos != 0);
 	assert(m_content_pos == 0);
 
+	// Connection: Keep-Alive
+	if (this->m_config->enabled(config_t::keep_alive)) {
+		const fast_str_t* value = this->m_request->header(http_header_t::Connection);
+		if (value != 0) {
+			value->split(" \t,", &this->m_split_items);
+
+			for (const auto& item : this->m_split_items) {
+				if (item.cmpi(http_header_t::Keep_Alive) == 0) {
+					*m_send_buf << http_header_t::Connection << ": "
+								<< http_header_t::Keep_Alive << "\r\n";
+					break;
+				}
+			}
+		}
+	}
+
 	// "Server:c11httpd"
-	*m_send_buf << "Server: c11httpd\r\n";
+	*m_send_buf << http_header_t::Server << ": c11httpd\r\n";
 
 	// "Content-Length:       0"
-	*m_send_buf << "Content-Length:";
+	*m_send_buf << http_header_t::Content_Length << ":";
 	m_content_len_pos = m_send_buf->size();
 	*m_send_buf << "       0\r\n";
 	*m_send_buf << "\r\n";

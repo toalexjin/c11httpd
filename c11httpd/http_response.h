@@ -8,12 +8,15 @@
 
 #include "c11httpd/pre__.h"
 #include "c11httpd/buf.h"
+#include "c11httpd/config.h"
 #include "c11httpd/fast_str.h"
 #include "c11httpd/http_header.h"
+#include "c11httpd/http_request.h"
 #include "c11httpd/http_status.h"
 #include "c11httpd/rest_result.h"
 #include <string>
 #include <set>
+#include <vector>
 
 
 namespace c11httpd {
@@ -31,20 +34,27 @@ public:
 		this->clear();
 	}
 
-	virtual ~http_response_t() = default;
+	~http_response_t() = default;
 
 	// Clear content but do not free buffer.
 	void clear() {
+		this->m_config = 0;
+		this->m_request = 0;
 		this->m_send_buf = 0;
 		this->m_code = http_status_t::ok;
 		this->m_code_pos = 0;
 		this->m_header_pos = 0;
 		this->m_content_len_pos = 0;
 		this->m_content_pos = 0;
+		this->m_split_items.clear();
 	}
 
-	void attach(buf_t* send_buf) {
+	void attach(const config_t* cfg,
+		const http_request_t* request, buf_t* send_buf) {
 		this->clear();
+
+		this->m_config = cfg;
+		this->m_request = request;
 		this->m_send_buf = send_buf;
 	}
 
@@ -88,7 +98,9 @@ private:
 	http_response_t(const http_response_t&) = delete;
 	http_response_t& operator=(const http_response_t&) = delete;
 
-	void write_code_i(int code = http_status_t::ok, const char* http_version = "HTTP/1.1");
+	void write_code_i(int code = http_status_t::ok,
+		const fast_str_t& http_version = http_header_t::HTTP_VERSION_1_1);
+
 	void complete_header_i();
 	void complete_content_i();
 
@@ -97,6 +109,8 @@ private:
 	static const std::set<fast_str_t, fast_str_less_nocase_t> st_protected_headers;
 
 private:
+	const config_t* m_config;
+	const http_request_t* m_request;
 	buf_t* m_send_buf;
 
 	// HTTP status code.
@@ -113,6 +127,9 @@ private:
 
 	// Where response content is located.
 	size_t m_content_pos;
+
+	// Used as buffer.
+	std::vector<fast_str_t> m_split_items;
 };
 
 

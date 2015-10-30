@@ -59,6 +59,13 @@ public:
 		fast_str_less_nocase_t m_less;
 	};
 
+public:
+	static const fast_str_t Connection;
+	static const fast_str_t Content_Length;
+	static const fast_str_t Host;
+	static const fast_str_t HTTP_VERSION_1_1;
+	static const fast_str_t Keep_Alive;
+	static const fast_str_t Server;
 
 public:
 	http_header_t() = default;
@@ -93,6 +100,7 @@ public:
 	bool operator<(const http_header_t& another) const {
 		return m_key.cmpi(another.m_key) < 0;
 	}
+
 
 private:
 	fast_str_t m_key;

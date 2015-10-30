@@ -201,7 +201,7 @@ http_request_t::parse_result_t http_request_t::continue_to_parse(
 			this->m_processed_bytes = size_t(msg.c_str() - this->m_recv_buf);
 
 			// Host name.
-			if (this->m_hostname.empty() && key.cmpi("Host") == 0) {
+			if (this->m_hostname.empty() && key.cmpi(http_header_t::Host) == 0) {
 				this->m_hostname = value.before(':');
 			}
 		}
@@ -209,7 +209,7 @@ http_request_t::parse_result_t http_request_t::continue_to_parse(
 
 	if (this->m_step < step_content_done) {
 		if (this->m_content_length == 0) {
-			const fast_str_t* len_str = this->header("Content-Length");
+			const fast_str_t* len_str = this->header(http_header_t::Content_Length);
 
 			if (len_str != 0 && !len_str->empty()) {
 				int32_t n;

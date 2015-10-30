@@ -96,7 +96,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	// Totally three worker processes.
-//	acceptor.worker_processes(1);
+//	acceptor.config().worker_processes(1);
 
 	my_controller_t handler;
 	acceptor.run_http(&handler);

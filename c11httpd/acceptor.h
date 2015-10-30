@@ -7,6 +7,7 @@
 #pragma once
 
 #include "c11httpd/pre__.h"
+#include "c11httpd/config.h"
 #include "c11httpd/conn.h"
 #include "c11httpd/conn_event.h"
 #include "c11httpd/conn_event_adapter.h"
@@ -53,7 +54,7 @@ public:
 	static const std::string ipv6_loopback;
 
 public:
-	acceptor_t();
+	explicit acceptor_t(const config_t& cfg = config_t());
 	virtual ~acceptor_t();
 	virtual void close();
 
@@ -81,23 +82,6 @@ public:
 	// Get all listening ports.
 	std::vector<std::pair<std::string, uint16_t>> binds() const;
 
-	// Get number of worker processes.
-	int worker_processes() const {
-		return this->m_worker_processes;
-	}
-
-	// Set number of worker processes.
-	//
-	// -# If the number is zero, then the main process does everything,
-	//    including receiving incoming client requests.
-	// -# If the number is greater than zero, than the main process
-	//    would become a pure management process, will NOT receive
-	//    incoming client requests and will restart worker processes if they died.
-	void worker_processes(int worker_processes) {
-		assert(worker_processes >= 1);
-		this->m_worker_processes = worker_processes;
-	}
-
 	// Return true if it's not worker process.
 	bool main_process() const {
 		return this->m_worker_pool.main_process();
@@ -123,6 +107,21 @@ public:
 	//
 	// If Linux signal SIGINT or SIGTERM is received, this function will return.
 	err_t run_http(const std::vector<rest_controller_t*>& controllers);
+
+	// Get configuration.
+	const config_t& config() const {
+		return this->m_config;
+	}
+
+	// Get configuration.
+	config_t& config() {
+		return this->m_config;
+	}
+
+	// Set configuration.
+	void config(const config_t& cfg) {
+		this->m_config = cfg;
+	}
 
 	// Stop the service.
 	//
@@ -153,10 +152,7 @@ private:
 	worker_pool_t m_worker_pool;
 	std::recursive_mutex m_signal_sock_mutex;
 	socket_t m_signal_sock[2];
-	int m_worker_processes;
-	int m_backlog;
-	int m_max_events;
-	int m_max_free_conn;
+	config_t m_config;
 };
 
 

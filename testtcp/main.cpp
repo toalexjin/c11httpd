@@ -111,20 +111,24 @@ class my_event_handler_t : public c11httpd::conn_event_t {
 public:
 	virtual uint32_t on_connected(
 		c11httpd::ctx_setter_t& ctx_setter,
+		const c11httpd::config_t& cfg,
 		const c11httpd::conn_session_t& session,
 		c11httpd::buf_t& send_buf);
 
 	virtual void on_disconnected(
 		c11httpd::ctx_setter_t& ctx_setter,
+		const c11httpd::config_t& cfg,
 		const c11httpd::conn_session_t& session);
 
 	virtual uint32_t on_received(
 		c11httpd::ctx_setter_t& ctx_setter,
+		const c11httpd::config_t& cfg,
 		const c11httpd::conn_session_t& session,
 		c11httpd::buf_t& recv_buf, c11httpd::buf_t& send_buf);
 
 	virtual uint32_t get_more_data(
 		c11httpd::ctx_setter_t& ctx_setter,
+		const c11httpd::config_t& cfg,
 		const c11httpd::conn_session_t& session,
 		c11httpd::buf_t& send_buf);
 };
@@ -132,6 +136,7 @@ public:
 
 uint32_t my_event_handler_t::on_connected(
 	c11httpd::ctx_setter_t& ctx_setter,
+	const c11httpd::config_t& cfg,
 	const c11httpd::conn_session_t& session,
 	c11httpd::buf_t& send_buf) {
 	ctx_setter.ctx(new my_context_t());
@@ -146,12 +151,14 @@ uint32_t my_event_handler_t::on_connected(
 
 void my_event_handler_t::on_disconnected(
 	c11httpd::ctx_setter_t& ctx_setter,
+	const c11httpd::config_t& cfg,
 	const c11httpd::conn_session_t& session) {
 	std::cout << session << " was disconnected." << std::endl;
 }
 
 uint32_t my_event_handler_t::on_received(
 	c11httpd::ctx_setter_t& ctx_setter,
+	const c11httpd::config_t& cfg,
 	const c11httpd::conn_session_t& session,
 	c11httpd::buf_t& recv_buf, c11httpd::buf_t& send_buf) {
 
@@ -185,6 +192,7 @@ uint32_t my_event_handler_t::on_received(
 
 uint32_t my_event_handler_t::get_more_data(
 	c11httpd::ctx_setter_t& ctx_setter,
+	const c11httpd::config_t& cfg,
 	const c11httpd::conn_session_t& session,
 	c11httpd::buf_t& send_buf) {
 
@@ -222,11 +230,12 @@ int main(int argc, char* argv[]) {
 	}
 
 	// Totally three worker processes.
-	acceptor.worker_processes(1);
+	acceptor.config().worker_processes(1);
 
 	if (std::strcmp(argv[1], "echo") == 0) {
 		ret = acceptor.run_tcp([](
 				c11httpd::ctx_setter_t& ctx_setter,
+				const c11httpd::config_t& cfg,
 				const c11httpd::conn_session_t& session,
 				c11httpd::buf_t& recv_buf,
 				c11httpd::buf_t& send_buf) -> uint32_t {

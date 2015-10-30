@@ -11,17 +11,20 @@ namespace c11httpd {
 
 
 uint32_t http_processor_t::on_connected(
-	ctx_setter_t& ctx_setter, const conn_session_t& session,
+	ctx_setter_t& ctx_setter, const config_t& cfg,
+	const conn_session_t& session,
 	buf_t& send_buf) {
 	return 0;
 }
 
 void http_processor_t::on_disconnected(
-	ctx_setter_t& ctx_setter, const conn_session_t& session) {
+	ctx_setter_t& ctx_setter, const config_t& cfg,
+	const conn_session_t& session) {
 }
 
 uint32_t http_processor_t::on_received(
-	ctx_setter_t& ctx_setter, const conn_session_t& session,
+	ctx_setter_t& ctx_setter, const config_t& cfg,
+	const conn_session_t& session,
 	buf_t& recv_buf, buf_t& send_buf) {
 
 	// Create a new HTTP session object if it's not created.
@@ -50,7 +53,7 @@ uint32_t http_processor_t::on_received(
 	const auto old_size = send_buf.size();
 
 	// Process this request.
-	const auto result = this->process_i(session, http_conn, &send_buf);
+	const auto result = this->process_i(cfg, session, http_conn, &send_buf);
 
 	// If fatal error happens, then restore original size of "send_buf".
 	if (result == rest_result_t::abandon) {
@@ -68,15 +71,15 @@ uint32_t http_processor_t::on_received(
 }
 
 rest_result_t http_processor_t::process_i(
-	const conn_session_t& session, http_conn_t* http_conn,
-	buf_t* send_buf) {
+	const config_t& cfg, const conn_session_t& session,
+	http_conn_t* http_conn, buf_t* send_buf) {
 	assert(http_conn != 0);
 
 	rest_controller_t* controller = *(this->m_controllers.begin());
 	const rest_controller_t::api_t& api = *(controller->apis().begin());
 
 	// Attach response object to send_buf.
-	http_conn->response().attach(send_buf);
+	http_conn->response().attach(&cfg, &(http_conn->request()), send_buf);
 
 	const auto result = std::get<2>(api)->invoke(*http_conn, session,
 		http_conn->request(), std::vector<fast_str_t>(),
@@ -89,7 +92,8 @@ rest_result_t http_processor_t::process_i(
 }
 
 uint32_t http_processor_t::get_more_data(
-	ctx_setter_t& ctx_setter, const conn_session_t& session, buf_t& send_buf) {
+	ctx_setter_t& ctx_setter, const config_t& cfg,
+	const conn_session_t& session, buf_t& send_buf) {
 	return 0;
 }
 

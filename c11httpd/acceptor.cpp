@@ -30,12 +30,8 @@ const std::string acceptor_t::ipv6_any("::");
 const std::string acceptor_t::ipv6_loopback("::1");
 
 
-acceptor_t::acceptor_t() : waitable_t(waitable_t::type_signal) {
-	this->m_worker_processes = 0;
-	this->m_backlog = 10;
-	this->m_max_events = 256;
-	this->m_max_free_conn = 128;
-
+acceptor_t::acceptor_t(const config_t& cfg)
+	: waitable_t(waitable_t::type_signal), m_config(cfg) {
 	// Ignore SIGPIPE.
 	signal_manager_t::instance()->ignore(SIGPIPE);
 }
@@ -91,7 +87,7 @@ err_t acceptor_t::bind_ipv4(const std::string& ip, uint16_t port) {
 		goto clean;
 	}
 
-	ret = sd.listen(this->m_backlog);
+	ret = sd.listen(this->m_config.backlog());
 	if (!ret) {
 		goto clean;
 	}
@@ -123,7 +119,7 @@ err_t acceptor_t::bind_ipv6(const std::string& ip, uint16_t port) {
 		goto clean;
 	}
 
-	ret = sd.listen(this->m_backlog);
+	ret = sd.listen(this->m_config.backlog());
 	if (!ret) {
 		goto clean;
 	}
@@ -175,6 +171,7 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 	int used_count = 0;
 	int free_count = 0;
 	fd_t epoll;
+	const int events_size = this->m_config.max_epoll_events();
 	struct epoll_event* events = 0;
 	socket_t new_sd;
 	std::string new_ip;
@@ -189,8 +186,8 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 	signal_registered = true;
 
 	// Create worker processes.
-	if (this->m_worker_processes > 0) {
-		ret = this->m_worker_pool.create(this->m_worker_processes);
+	if (this->m_config.worker_processes() > 0) {
+		ret = this->m_worker_pool.create(this->m_config.worker_processes());
 		if (!ret) {
 			goto clean;
 		}
@@ -215,7 +212,7 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 	}
 
 	// Add listening sockets.
-	if (this->m_worker_processes == 0 || !this->m_worker_pool.main_process()) {
+	if (this->m_config.worker_processes() == 0 || !this->m_worker_pool.main_process()) {
 		for (auto it = this->m_listens.begin(); it != this->m_listens.end(); ++it) {
 			ret = this->epoll_set_i(epoll, (*it).get()->sock(), (*it).get(), EPOLL_CTL_ADD, EPOLLIN | EPOLLET);
 			if (!ret) {
@@ -224,9 +221,9 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 		}
 	}
 
-	events = new struct epoll_event[this->m_max_events];
+	events = new struct epoll_event[events_size];
 	while (true) {
-		const int wait_result = epoll_wait(epoll.get(), events, this->m_max_events, -1);
+		const int wait_result = epoll_wait(epoll.get(), events, events_size, -1);
 
 		if (wait_result == -1) {
 			const auto e = err_t::current();
@@ -290,7 +287,7 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 					do {
 						// Trigger "on_connected" event.
 						conn->last_event_result(handler->on_connected(
-								*conn, *conn, conn->send_buf()));
+								*conn, this->m_config, *conn, conn->send_buf()));
 
 						// If no data to send and disconnect flag is on,
 						// then close connection.
@@ -322,7 +319,7 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 
 					if (gc) {
 						// Trigger "on_disconnected" event.
-						handler->on_disconnected(*conn, *conn);
+						handler->on_disconnected(*conn, this->m_config, *conn);
 
 						this->add_free_conn_i(&free_list, &free_count, conn);
 						conn = 0;
@@ -352,7 +349,8 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 						// Trigger "on_received" event.
 						if (new_recv_size > 0) {
 							conn->last_event_result(handler->on_received(
-								*conn, *conn, conn->recv_buf(), conn->send_buf()));
+								*conn, this->m_config, *conn,
+								conn->recv_buf(), conn->send_buf()));
 						}
 
 						// Client side has closed connection.
@@ -393,7 +391,7 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 				if (gc) {
 					if (this->epoll_del_i(epoll, conn->sock()).ok()) {
 						// Trigger "on_disconnected" event.
-						handler->on_disconnected(*conn, *conn);
+						handler->on_disconnected(*conn, this->m_config, *conn);
 
 						// Remove it from used list.
 						conn->link_node()->unlink();
@@ -416,10 +414,13 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 clean:
 
 	// Trigger "on_disconnected" event for each existing connection.
-	used_list.for_each([handler](conn_t* c) {
-		handler->on_disconnected(*c, *c);
-		delete c;
-	});
+	do {
+		const config_t* cfg = &this->m_config;
+		used_list.for_each([handler, cfg](conn_t* c) {
+			handler->on_disconnected(*c, *cfg, *c);
+			delete c;
+		});
+	} while (0);
 
 	free_list.clear();
 
@@ -495,7 +496,7 @@ void acceptor_t::add_free_conn_i(link_t<conn_t>* free_list, int* free_count, con
 
 	conn->close();
 
-	if (*free_count < this->m_max_free_conn) {
+	if (*free_count < this->m_config.max_free_connection()) {
 		free_list->push_front(conn->link_node());
 		++ *free_count;
 	} else {
@@ -521,7 +522,8 @@ err_t acceptor_t::loop_send_i(conn_event_t* handler, conn_t* conn) {
 			break;
 		}
 
-		conn->last_event_result(handler->get_more_data(*conn, *conn, conn->send_buf()));
+		conn->last_event_result(handler->get_more_data(
+				*conn, this->m_config, *conn, conn->send_buf()));
 		if (conn->pending_send_size() == 0) {
 			assert((conn->last_event_result() & event_result_more_data) == 0);
 			break;
@@ -612,7 +614,7 @@ err_t acceptor_t::recv_signal_sock_i(fd_t* epoll, bool* exit) {
 	// Re-start worker processes if they died.
 	if (dead_workers > 0
 		&& this->m_worker_pool.main_process()
-		&& this->m_worker_processes > 0) {
+		&& this->m_config.worker_processes() > 0) {
 
 		// Close handles before fork to avoid child process get them.
 		epoll->close();
