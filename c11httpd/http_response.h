@@ -11,7 +11,9 @@
 #include "c11httpd/fast_str.h"
 #include "c11httpd/http_header.h"
 #include "c11httpd/http_status.h"
+#include "c11httpd/rest_result.h"
 #include <string>
+#include <set>
 
 
 namespace c11httpd {
@@ -46,8 +48,11 @@ public:
 		this->m_send_buf = send_buf;
 	}
 
-	void detach() {
-		this->complete_content_i();
+	void detach(rest_result_t result) {
+		if (result != rest_result_t::abandon) {
+			this->complete_content_i();
+		}
+
 		this->clear();
 	}
 
@@ -86,6 +91,10 @@ private:
 	void write_code_i(int code = http_status_t::ok, const char* http_version = "HTTP/1.1");
 	void complete_header_i();
 	void complete_content_i();
+
+private:
+	// Some headers are protected, not allowed to update by caller.
+	static const std::set<fast_str_t, fast_str_less_nocase_t> st_protected_headers;
 
 private:
 	buf_t* m_send_buf;

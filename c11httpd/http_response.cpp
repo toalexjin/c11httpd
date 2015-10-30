@@ -11,6 +11,12 @@
 namespace c11httpd {
 
 
+const std::set<fast_str_t, fast_str_less_nocase_t> http_response_t::st_protected_headers = {
+	"Content-Length",
+	"Connection"
+};
+
+
 http_response_t& http_response_t::code(int code) {
 	this->write_code_i(code);
 
@@ -21,8 +27,8 @@ http_response_t& http_response_t::operator<<(const http_header_t& header) {
 	// Response header must be written before response content.
 	assert(m_content_pos == 0);
 
-	// "Content-Length" is written by http_response_t automatically,
-	if (header.key().cmpi("Content-Length") == 0) {
+	// Some headers are not allowed to update.
+	if (st_protected_headers.find(header.key()) != st_protected_headers.end()) {
 		assert(false);
 		return *this;
 	}

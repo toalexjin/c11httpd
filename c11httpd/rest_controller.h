@@ -13,6 +13,7 @@
 #include "c11httpd/http_method.h"
 #include "c11httpd/http_request.h"
 #include "c11httpd/http_response.h"
+#include "c11httpd/rest_result.h"
 #include <functional>
 #include <memory>
 #include <string>
@@ -74,19 +75,6 @@ private:
 };
 
 } // namespace details.
-
-
-// RESTFul API result.
-enum class rest_result_t {
-	// The request has been fully processed
-	// and its result is saved to "response".
-	done = 0,
-
-	// The request has fatal error, no response
-	// was generated and the connection
-	// needs to be closed immediately.
-	disconnect = 1
-};
 
 
 // RESTFul API controller.
