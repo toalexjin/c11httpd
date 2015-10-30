@@ -16,7 +16,11 @@ namespace c11httpd {
 class config_t {
 public:
 	enum {
-		keep_alive = 1
+		// Support "Connection: keep-alive" or not.
+		keep_alive = 1,
+
+		// Support response "Date:???" or not.
+		response_date = (1 << 1)
 	};
 
 public:

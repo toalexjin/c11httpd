@@ -33,5 +33,6 @@
 #include "c11httpd/signal_event.h"
 #include "c11httpd/signal_manager.h"
 #include "c11httpd/socket.h"
+#include "c11httpd/utility.h"
 #include "c11httpd/waitable.h"
 

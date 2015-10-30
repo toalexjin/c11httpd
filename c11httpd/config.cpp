@@ -16,7 +16,7 @@ config_t::config_t() {
 }
 
 void config_t::set_default() {
-	this->m_flags = keep_alive;
+	this->m_flags = keep_alive | response_date;
 	this->m_worker_processes = 0;
 	this->m_backlog = 10;
 	this->m_max_epoll_events = 256;

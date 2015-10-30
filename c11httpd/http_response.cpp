@@ -5,6 +5,7 @@
  */
 
 #include "c11httpd/http_response.h"
+#include "c11httpd/utility.h"
 #include <cstring>
 
 
@@ -14,6 +15,7 @@ namespace c11httpd {
 const std::set<fast_str_t, fast_str_less_nocase_t> http_response_t::st_protected_headers = {
 	http_header_t::Connection,
 	http_header_t::Content_Length,
+	http_header_t::Date,
 	http_header_t::Server
 };
 
@@ -123,6 +125,14 @@ void http_response_t::complete_header_i() {
 				}
 			}
 		}
+	}
+
+	// Date:???
+	if (this->m_config->enabled(config_t::response_date)) {
+		char str[utility_t::response_date_len];
+
+		utility_t::response_date(str);
+		*m_send_buf << http_header_t::Date << ": " << str << "\r\n";
 	}
 
 	// "Server:c11httpd"
