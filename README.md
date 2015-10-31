@@ -80,13 +80,15 @@ int main() {
 	//
 	// The main process is pure management process,
 	// will restart worker processes if they died.
-	acceptor.worker_processes(4);
+	acceptor.config().worker_processes(4);
 
 	// Run TCP service.
 	//
 	// If Linux signal SIGINT or SIGTERM is recevied, the service will quit.
 	acceptor.run_tcp([](
-		c11httpd::conn_session_t& session,
+		c11httpd::ctx_setter_t& ctx_setter,
+		const c11httpd::config_t& cfg,
+		const c11httpd::conn_session_t& session,
 		c11httpd::buf_t& recv_buf,
 		c11httpd::buf_t& send_buf) -> uint32_t {
 
@@ -111,22 +113,28 @@ int main() {
 class my_event_handler_t : public c11httpd::conn_event_t {
 public:
 	virtual uint32_t on_connected(
-		c11httpd::conn_session_t& session,
+		c11httpd::ctx_setter_t& ctx_setter,
+		const c11httpd::config_t& cfg,
+		const c11httpd::conn_session_t& session,
 		c11httpd::buf_t& send_buf) {
-
 		send_buf << "Hello, " << session.ip() << ":"
 			<< std::to_string(session.port()) << "\r\n";
 
 		return 0;
 	}
 
-	virtual void on_disconnected(c11httpd::conn_session_t& session) {
+	virtual void on_disconnected(
+		c11httpd::ctx_setter_t& ctx_setter,
+		const c11httpd::config_t& cfg,
+		const c11httpd::conn_session_t& session) {
 		std::cout << session.ip() << ":" << session.port()
 			<< " was disconnected." << std::endl;
 	}
 
 	virtual uint32_t on_received(
-		c11httpd::conn_session_t& session,
+		c11httpd::ctx_setter_t& ctx_setter,
+		const c11httpd::config_t& cfg,
+		const c11httpd::conn_session_t& session,
 		c11httpd::buf_t& recv_buf,
 		c11httpd::buf_t& send_buf) {
 
@@ -138,11 +146,13 @@ public:
 		recv_buf.clear();
 
 		// Make "get_more_data" event be triggered.
-		return c11httpd::event_result_more_data;
+		return c11httpd::conn_event_t::result_more_data;
 	}
 
 	virtual uint32_t get_more_data(
-		c11httpd::conn_session_t& session,
+		c11httpd::ctx_setter_t& ctx_setter,
+		const c11httpd::config_t& cfg,
+		const c11httpd::conn_session_t& session,
 		c11httpd::buf_t& send_buf) {
 
 		send_buf << "Goodbye, " << session.ip() << ":"
@@ -151,7 +161,7 @@ public:
 		// Let's disconnect the connection.
 		//
 		// The client totally received three messages: hello, echo and goodbye.
-		return c11httpd::event_result_disconnect;
+		return c11httpd::conn_event_t::result_disconnect;
 	}
 };
 
@@ -166,7 +176,7 @@ int main() {
 	//
 	// The main process is pure management process,
 	// will restart worker processes if they died.
-	acceptor.worker_processes(4);
+	acceptor.config().worker_processes(4);
 
 	// Run TCP service.
 	//
@@ -178,7 +188,7 @@ int main() {
 }
 ```
 
-### How to create a RESTFul service running on two virtual hosts (`In Progress`):
+### How to create a RESTFul service running on two virtual hosts:
 
 ```C++
 int main() {
@@ -192,28 +202,38 @@ int main() {
 	//
 	// The main process is pure management process,
 	// will restart worker processes if they died.
-	acceptor.worker_processes(4);
+	acceptor.config().worker_processes(4);
 
 	// Controller for "company.net".
-	c11httpd::rest_controller_t c1("company.net", "/company");
+	c11httpd::rest_ctrl_t c1("company.net", "/company");
 
 	// GET "/company/employee".
-	c1.add("/employee", http_method_get, [](const http_request_t& request,
-		http_response_t& response, const std::vector<fast_str_t>& placeholders) -> uint32_t {
+	c1.add("/employee", c11httpd::http_method_t::get,
+		[](c11httpd::ctx_setter_t& ctx_setter,
+		const c11httpd::conn_session_t& session,
+		const c11httpd::http_request_t& request,
+		const std::vector<c11httpd::fast_str_t>& placeholders
+		c11httpd::http_response_t& response
+		) -> c11httpd::rest_result_t {
 
 		// Set HTTP response headers.
-		response << http_header_t("Content-Type", "application/json;charset=UTF-8");
+		response << c11httpd::http_header_t("Content-Type", "application/json;charset=UTF-8");
 
 		// Write response content.
 		// Note that the user should use a json parser to encode the string.
 		response << "[]";
 
-		return 0;
+		return c11httpd::rest_result_t::done;
 	});
 
 	// GET "/company/employee/?".
-	c1.add("/employee/?", http_method_get, [](const http_request_t& request,
-		http_response_t& response, const std::vector<fast_str_t>& placeholders) -> uint32_t {
+	c1.add("/employee/?", c11httpd::http_method_t::get,
+		[](c11httpd::ctx_setter_t& ctx_setter,
+		const c11httpd::conn_session_t& session,
+		const c11httpd::http_request_t& request,
+		const std::vector<c11httpd::fast_str_t>& placeholders
+		c11httpd::http_response_t& response
+		) -> c11httpd::rest_result_t {
 
 		// Set HTTP response headers.
 		response << http_header_t("Content-Type", "application/json;charset=UTF-8");
@@ -222,15 +242,20 @@ int main() {
 		// Note that the user should use a json parser to encode the string.
 		response << "{\"id\":\"" << variables[0] << "\",\"name\":\"Alex Jin\"}";
 
-		return 0;
+		return c11httpd::rest_result_t::done;
 	});
 
 	// Controller for "school.net".
-	c11httpd::rest_controller_t c2("school.net", "/school");
+	c11httpd::rest_ctrl_t c2("school.net", "/school");
 
 	// GET "/school/student".
-	c2.add("/student", http_method_get, [](const http_request_t& request,
-		http_response_t& response, const std::vector<fast_str_t>& placeholders) -> uint32_t {
+	c2.add("/student", c11httpd::http_method_t::get,
+		[](c11httpd::ctx_setter_t& ctx_setter,
+		const c11httpd::conn_session_t& session,
+		const c11httpd::http_request_t& request,
+		const std::vector<c11httpd::fast_str_t>& placeholders
+		c11httpd::http_response_t& response
+		) -> c11httpd::rest_result_t {
 
 		// Set HTTP response headers.
 		response << http_header_t("Content-Type", "application/json;charset=UTF-8");
@@ -239,20 +264,25 @@ int main() {
 		// Note that the user should use a json parser to encode the string.
 		response << "[]";
 
-		return 0;
+		return c11httpd::rest_result_t::done;
 	});
 
 	// GET "/school/student/?".
-	c2.add("/student/?", http_method_get, [](const http_request_t& request,
-		http_response_t& response, const std::vector<fast_str_t>& placeholders) -> uint32_t {
+	c2.add("/student/?", c11httpd::http_method_t::get,
+		[](c11httpd::ctx_setter_t& ctx_setter,
+		const c11httpd::conn_session_t& session,
+		const c11httpd::http_request_t& request,
+		const std::vector<c11httpd::fast_str_t>& placeholders
+		c11httpd::http_response_t& response
+		) -> c11httpd::rest_result_t {
 
 		// Set HTTP response headers.
-		response << http_header_t("Content-Type", "application/json;charset=UTF-8");
+		response << c11httpd::http_header_t("Content-Type", "application/json;charset=UTF-8");
 
 		// Not found.
-		response.code(http_status_t::not_found);
+		response.code(c11httpd::http_status_t::not_found);
 
-		return 0;
+		return c11httpd::rest_result_t::done;
 	});
 
 	// Run RESTFul service.
