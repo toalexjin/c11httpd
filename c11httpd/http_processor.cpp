@@ -46,7 +46,7 @@ uint32_t http_processor_t::on_received(
 
 	// HTTP request is incorrect, let's close the connection.
 	if (parse_result == http_request_t::parse_result_t::failed) {
-		return event_result_disconnect;
+		return conn_event_t::result_disconnect;
 	}
 
 	// Save the original size of "send_buf".
@@ -58,7 +58,7 @@ uint32_t http_processor_t::on_received(
 	// If fatal error happens, then restore original size of "send_buf".
 	if (result == rest_result_t::abandon) {
 		send_buf.size(old_size);
-		return event_result_disconnect;
+		return conn_event_t::result_disconnect;
 	}
 
 	// We have processed this request, remove it from beginning of the buffer.
@@ -75,8 +75,8 @@ rest_result_t http_processor_t::process_i(
 	http_conn_t* http_conn, buf_t* send_buf) {
 	assert(http_conn != 0);
 
-	rest_controller_t* controller = *(this->m_controllers.begin());
-	const rest_controller_t::api_t& api = *(controller->apis().begin());
+	rest_ctrl_t* controller = *(this->m_controllers.begin());
+	const rest_ctrl_t::api_t& api = *(controller->apis().begin());
 
 	// Attach response object to send_buf.
 	http_conn->response().attach(&cfg,

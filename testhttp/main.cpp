@@ -16,9 +16,10 @@ static void help() {
 	std::cout << std::endl;
 }
 
-class my_controller_t : public c11httpd::rest_controller_t {
+// My RESTFul API controller.
+class my_ctrl_t : public c11httpd::rest_ctrl_t {
 public:
-	my_controller_t();
+	my_ctrl_t();
 
 	c11httpd::rest_result_t handle_root(
 			c11httpd::ctx_setter_t& ctx_setter,
@@ -28,13 +29,13 @@ public:
 			c11httpd::http_response_t& response);
 };
 
-my_controller_t::my_controller_t() {
+my_ctrl_t::my_ctrl_t() {
 	this->add("/*", c11httpd::http_method_t::any, this,
-		&my_controller_t::handle_root, "",
+		&my_ctrl_t::handle_root, "",
 		c11httpd::http_header_t::JSON_UTF8.to_str());
 }
 
-c11httpd::rest_result_t my_controller_t::handle_root(
+c11httpd::rest_result_t my_ctrl_t::handle_root(
 		c11httpd::ctx_setter_t& ctx_setter,
 		const c11httpd::conn_session_t& session,
 		const c11httpd::http_request_t& request,
@@ -96,7 +97,7 @@ int main(int argc, char* argv[]) {
 	// Totally three worker processes.
 //	acceptor.config().worker_processes(1);
 
-	my_controller_t handler;
+	my_ctrl_t handler;
 	acceptor.run_http(&handler);
 
 	if (acceptor.main_process()) {

@@ -28,7 +28,7 @@
 #include "c11httpd/link.h"
 #include "c11httpd/listen.h"
 #include "c11httpd/worker_pool.h"
-#include "c11httpd/rest_controller.h"
+#include "c11httpd/rest_ctrl.h"
 #include "c11httpd/rest_result.h"
 #include "c11httpd/signal_event.h"
 #include "c11httpd/signal_manager.h"

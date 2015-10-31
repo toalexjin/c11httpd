@@ -187,7 +187,7 @@ uint32_t my_event_handler_t::on_received(
 	// Write data to send.
 	ctx->next(send_buf);
 
-	return ctx->more() ? c11httpd::event_result_more_data : 0;
+	return ctx->more() ? c11httpd::conn_event_t::result_more_data : 0;
 }
 
 uint32_t my_event_handler_t::get_more_data(
@@ -199,7 +199,7 @@ uint32_t my_event_handler_t::get_more_data(
 	my_context_t* ctx = (my_context_t*) ctx_setter.ctx();
 	ctx->next(send_buf);
 
-	return ctx->more() ? c11httpd::event_result_more_data : 0;
+	return ctx->more() ? c11httpd::conn_event_t::result_more_data : 0;
 }
 
 static void help() {

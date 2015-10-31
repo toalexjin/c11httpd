@@ -10,7 +10,7 @@
 #include "c11httpd/config.h"
 #include "c11httpd/conn_event.h"
 #include "c11httpd/http_conn.h"
-#include "c11httpd/rest_controller.h"
+#include "c11httpd/rest_ctrl.h"
 #include <vector>
 
 
@@ -24,7 +24,7 @@ namespace c11httpd {
 // -# Distribute request to the right controller based on URI.
 class http_processor_t : public conn_event_t {
 public:
-	explicit http_processor_t(const std::vector<rest_controller_t*>& controllers)
+	explicit http_processor_t(const std::vector<rest_ctrl_t*>& controllers)
 		: m_controllers(controllers) {
 	}
 	virtual ~http_processor_t() = default;
@@ -57,7 +57,7 @@ private:
 		http_conn_t* http_conn, buf_t* send_buf);
 
 private:
-	const std::vector<rest_controller_t*> m_controllers;
+	const std::vector<rest_ctrl_t*> m_controllers;
 };
 
 

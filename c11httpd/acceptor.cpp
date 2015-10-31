@@ -291,7 +291,7 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 
 						// If no data to send and disconnect flag is on,
 						// then close connection.
-						if ((conn->last_event_result() & event_result_disconnect) != 0
+						if ((conn->last_event_result() & conn_event_t::result_disconnect) != 0
 							&& conn->pending_send_size() == 0) {
 							gc = true;
 							break;
@@ -361,7 +361,7 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 
 						if (conn->pending_send_size() > 0) {
 							this->epoll_set_i(epoll, conn->sock(), conn, EPOLL_CTL_MOD, EPOLLOUT | EPOLLET);
-						} else if (conn->last_event_result() & event_result_disconnect) {
+						} else if (conn->last_event_result() & conn_event_t::result_disconnect) {
 							gc = true;
 							break;
 						}
@@ -375,7 +375,7 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 						if (conn->pending_send_size() == 0) {
 							// If all data has been sent and disconnect flag is on,
 							// then close connection.
-							if (conn->last_event_result() & event_result_disconnect) {
+							if (conn->last_event_result() & conn_event_t::result_disconnect) {
 								gc = true;
 								break;
 							}
@@ -450,14 +450,14 @@ err_t acceptor_t::run_tcp(const conn_event_adapter_t::on_received_t& recv) {
 	return this->run_tcp(&adapter);
 }
 
-err_t acceptor_t::run_http(rest_controller_t* controller) {
+err_t acceptor_t::run_http(rest_ctrl_t* controller) {
 	assert(controller != 0);
 
 	http_processor_t processor({controller});
 	return this->run_tcp(&processor);
 }
 
-err_t acceptor_t::run_http(const std::vector<rest_controller_t*>& controllers) {
+err_t acceptor_t::run_http(const std::vector<rest_ctrl_t*>& controllers) {
 	http_processor_t processor(controllers);
 	return this->run_tcp(&processor);
 }
@@ -518,14 +518,14 @@ err_t acceptor_t::loop_send_i(conn_event_t* handler, conn_t* conn) {
 			break;
 		}
 
-		if ((conn->last_event_result() & event_result_more_data) == 0) {
+		if ((conn->last_event_result() & conn_event_t::result_more_data) == 0) {
 			break;
 		}
 
 		conn->last_event_result(handler->get_more_data(
 				*conn, this->m_config, *conn, conn->send_buf()));
 		if (conn->pending_send_size() == 0) {
-			assert((conn->last_event_result() & event_result_more_data) == 0);
+			assert((conn->last_event_result() & conn_event_t::result_more_data) == 0);
 			break;
 		}
 	}

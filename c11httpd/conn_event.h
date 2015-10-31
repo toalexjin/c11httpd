@@ -15,19 +15,6 @@
 
 namespace c11httpd {
 
-enum event_result_t {
-	// Close the connection.
-	//
-	// If this flag is on and there are pending data to send,
-	// then it will send data before closing connection.
-	event_result_disconnect = 1,
-
-	// There are more data to send.
-	//
-	// When this flag is on, acceptor_t will keep calling
-	// conn_event_t::get_more_data() until this flag becomes off.
-	event_result_more_data = (1 << 1)
-};
 
 // Client connection event.
 //
@@ -35,6 +22,21 @@ enum event_result_t {
 // a sub-class that implements this interface in order to handle
 // client connection events.
 class conn_event_t {
+public:
+	enum {
+		// Close the connection.
+		//
+		// If this flag is on and there are pending data to send,
+		// then it will send data before closing connection.
+		result_disconnect = 1,
+
+		// There are more data to send.
+		//
+		// When this flag is on, acceptor_t will keep calling
+		// conn_event_t::get_more_data() until this flag becomes off.
+		result_more_data = (1 << 1)
+	};
+
 public:
 	conn_event_t() = default;
 	virtual ~conn_event_t() = default;
@@ -54,7 +56,7 @@ public:
 	// so NEVER remove any data that the object already has,
 	// and ALWAYS append data at the end.
 	//
-	// @return A combination value of event_result_t.
+	// @return A combination value of "result_???"
 	virtual uint32_t on_connected(
 		ctx_setter_t& ctx_setter, const config_t& cfg,
 		const conn_session_t& session, buf_t& send_buf) = 0;
@@ -89,7 +91,7 @@ public:
 	// so NEVER remove any data that the object already has,
 	// and ALWAYS append data at the end.
 	//
-	// @return A combination value of event_result_t.
+	// @return A combination value of "result_???"
 	virtual uint32_t on_received(
 		ctx_setter_t& ctx_setter, const config_t& cfg,
 		const conn_session_t& session,
@@ -101,7 +103,7 @@ public:
 	// so NEVER remove any data that the object already has,
 	// and ALWAYS append data at the end.
 	//
-	// @return A combination value of event_result_t.
+	// @return A combination value of "result_???"
 	virtual uint32_t get_more_data(
 		ctx_setter_t& ctx_setter, const config_t& cfg,
 		const conn_session_t& session,

@@ -81,7 +81,7 @@ private:
 //
 // YOu could use this controller class directly,
 // or create a sub-class inherits from this class.
-class rest_controller_t {
+class rest_ctrl_t {
 public:
 	// C routine prototype.
 	typedef rest_result_t (*routine_c_t)(
@@ -121,14 +121,14 @@ public:
 	> api_t;
 
 public:
-	explicit rest_controller_t(
+	explicit rest_ctrl_t(
 		const std::string& virtual_host = std::string(),
 		const std::string& uri_root = std::string()
 	) : m_virtual_host(virtual_host),
 		m_uri_root(uri_root) {
 	}
 
-	virtual ~rest_controller_t() = default;
+	virtual ~rest_ctrl_t() = default;
 
 	// Virtual host, e.g."www.vhost1.net".
 	const std::string& virtual_host() {
