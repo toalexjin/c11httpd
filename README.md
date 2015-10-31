@@ -218,7 +218,7 @@ public:
 		response << "[]";
 
 		return c11httpd::rest_result_t::done;
-	});
+	}
 
 	// GET "http://my_company.net/company/employee/<id>".
 	c11httpd::rest_result_t get_employee(
@@ -236,7 +236,7 @@ public:
 		response << "{\"id\":\"" << variables[0] << "\",\"name\":\"Alex Jin\"}";
 
 		return c11httpd::rest_result_t::done;
-	});
+	}
 };
 
 // School REST API controller.
@@ -266,7 +266,7 @@ public:
 		response << "[]";
 
 		return c11httpd::rest_result_t::done;
-	});
+	}
 
 	// GET "http://my_school.net/school/student/<id>".
 	c11httpd::rest_result_t get_student(
@@ -283,7 +283,7 @@ public:
 		response.code(c11httpd::http_status_t::not_found);
 
 		return c11httpd::rest_result_t::done;
-	});
+	}
 };
 
 int main() {
