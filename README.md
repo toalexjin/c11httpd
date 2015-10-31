@@ -39,9 +39,9 @@ there are still two pending issues:
   you could bind each worker process to each CPU core to get a better performance.
 - **RESTFul Framework**: c11httpd offers a simple RESTFul framework, you could
   easily dispatch incoming requests to different GET/POST/PUT/DELETE
-  routines (`In Progress`).
+  routines.
 - **Virtual Host**: c11httpd enables you to create several virtual hosts
-  running on the same TCP ports (`In Progress`).
+  running on the same TCP ports.
 - **Simple Implementation**: c11httpd's interface and implementation are simple,
   use meta-programming (C++ Template) but does not widely use it. This is
   different from most of modern C++ libraries (e.g. **boost**), which are
@@ -191,6 +191,101 @@ int main() {
 ### How to create a RESTFul service running on two virtual hosts:
 
 ```C++
+// Company REST API controller.
+class my_company_ctrl_t : public c11httpd::rest_ctrl_t {
+public:
+	my_company_ctrl_t() : c11httpd::rest_ctrl_t("/company", "my_company.net") {
+		this->add("/employee", c11httpd::http_method_t::get,
+			this, &my_company_ctrl_t::list_employees);
+
+		this->add("/employee/?", c11httpd::http_method_t::get,
+			this, &my_company_ctrl_t::get_employee);
+	}
+
+	// GET "http://my_company.net/company/employee".
+	c11httpd::rest_result_t list_employees(
+		c11httpd::ctx_setter_t& ctx_setter,
+		const c11httpd::conn_session_t& session,
+		const c11httpd::http_request_t& request,
+		const std::vector<c11httpd::fast_str_t>& placeholders
+		c11httpd::http_response_t& response) {
+
+		// Set HTTP response headers.
+		response << c11httpd::http_header_t("Content-Type", "application/json;charset=UTF-8");
+
+		// Write response content.
+		// Note that the user should use a json parser to encode the string.
+		response << "[]";
+
+		return c11httpd::rest_result_t::done;
+	});
+
+	// GET "http://my_company.net/company/employee/<id>".
+	c11httpd::rest_result_t get_employee(
+		c11httpd::ctx_setter_t& ctx_setter,
+		const c11httpd::conn_session_t& session,
+		const c11httpd::http_request_t& request,
+		const std::vector<c11httpd::fast_str_t>& placeholders
+		c11httpd::http_response_t& response) {
+
+		// Set HTTP response headers.
+		response << http_header_t("Content-Type", "application/json;charset=UTF-8");
+
+		// Write response content.
+		// Note that the user should use a json parser to encode the string.
+		response << "{\"id\":\"" << variables[0] << "\",\"name\":\"Alex Jin\"}";
+
+		return c11httpd::rest_result_t::done;
+	});
+};
+
+// School REST API controller.
+class my_school_ctrl_t : public c11httpd::rest_ctrl_t {
+public:
+	my_school_ctrl_t() : c11httpd::rest_ctrl_t("/school", "my_school.net") {
+		this->add("/student", c11httpd::http_method_t::get,
+			this, &my_school_ctrl_t::list_students);
+
+		this->add("/student/?", c11httpd::http_method_t::get,
+			this, &my_school_ctrl_t::get_student);
+	}
+
+	// GET "http://my_school.net/school/student".
+	c11httpd::rest_result_t list_students(
+		c11httpd::ctx_setter_t& ctx_setter,
+		const c11httpd::conn_session_t& session,
+		const c11httpd::http_request_t& request,
+		const std::vector<c11httpd::fast_str_t>& placeholders
+		c11httpd::http_response_t& response) {
+
+		// Set HTTP response headers.
+		response << http_header_t("Content-Type", "application/json;charset=UTF-8");
+
+		// Write response content.
+		// Note that the user should use a json parser to encode the string.
+		response << "[]";
+
+		return c11httpd::rest_result_t::done;
+	});
+
+	// GET "http://my_school.net/school/student/<id>".
+	c11httpd::rest_result_t get_student(
+		c11httpd::ctx_setter_t& ctx_setter,
+		const c11httpd::conn_session_t& session,
+		const c11httpd::http_request_t& request,
+		const std::vector<c11httpd::fast_str_t>& placeholders
+		c11httpd::http_response_t& response) {
+
+		// Set HTTP response headers.
+		response << c11httpd::http_header_t("Content-Type", "application/json;charset=UTF-8");
+
+		// Not found.
+		response.code(c11httpd::http_status_t::not_found);
+
+		return c11httpd::rest_result_t::done;
+	});
+};
+
 int main() {
 	c11httpd::acceptor_t acceptor;
 
@@ -204,90 +299,11 @@ int main() {
 	// will restart worker processes if they died.
 	acceptor.config().worker_processes(4);
 
-	// Controller for "company.net".
-	c11httpd::rest_ctrl_t c1("company.net", "/company");
-
-	// GET "/company/employee".
-	c1.add("/employee", c11httpd::http_method_t::get,
-		[](c11httpd::ctx_setter_t& ctx_setter,
-		const c11httpd::conn_session_t& session,
-		const c11httpd::http_request_t& request,
-		const std::vector<c11httpd::fast_str_t>& placeholders
-		c11httpd::http_response_t& response
-		) -> c11httpd::rest_result_t {
-
-		// Set HTTP response headers.
-		response << c11httpd::http_header_t("Content-Type", "application/json;charset=UTF-8");
-
-		// Write response content.
-		// Note that the user should use a json parser to encode the string.
-		response << "[]";
-
-		return c11httpd::rest_result_t::done;
-	});
-
-	// GET "/company/employee/?".
-	c1.add("/employee/?", c11httpd::http_method_t::get,
-		[](c11httpd::ctx_setter_t& ctx_setter,
-		const c11httpd::conn_session_t& session,
-		const c11httpd::http_request_t& request,
-		const std::vector<c11httpd::fast_str_t>& placeholders
-		c11httpd::http_response_t& response
-		) -> c11httpd::rest_result_t {
-
-		// Set HTTP response headers.
-		response << http_header_t("Content-Type", "application/json;charset=UTF-8");
-
-		// Write response content.
-		// Note that the user should use a json parser to encode the string.
-		response << "{\"id\":\"" << variables[0] << "\",\"name\":\"Alex Jin\"}";
-
-		return c11httpd::rest_result_t::done;
-	});
-
-	// Controller for "school.net".
-	c11httpd::rest_ctrl_t c2("school.net", "/school");
-
-	// GET "/school/student".
-	c2.add("/student", c11httpd::http_method_t::get,
-		[](c11httpd::ctx_setter_t& ctx_setter,
-		const c11httpd::conn_session_t& session,
-		const c11httpd::http_request_t& request,
-		const std::vector<c11httpd::fast_str_t>& placeholders
-		c11httpd::http_response_t& response
-		) -> c11httpd::rest_result_t {
-
-		// Set HTTP response headers.
-		response << http_header_t("Content-Type", "application/json;charset=UTF-8");
-
-		// Write response content.
-		// Note that the user should use a json parser to encode the string.
-		response << "[]";
-
-		return c11httpd::rest_result_t::done;
-	});
-
-	// GET "/school/student/?".
-	c2.add("/student/?", c11httpd::http_method_t::get,
-		[](c11httpd::ctx_setter_t& ctx_setter,
-		const c11httpd::conn_session_t& session,
-		const c11httpd::http_request_t& request,
-		const std::vector<c11httpd::fast_str_t>& placeholders
-		c11httpd::http_response_t& response
-		) -> c11httpd::rest_result_t {
-
-		// Set HTTP response headers.
-		response << c11httpd::http_header_t("Content-Type", "application/json;charset=UTF-8");
-
-		// Not found.
-		response.code(c11httpd::http_status_t::not_found);
-
-		return c11httpd::rest_result_t::done;
-	});
-
 	// Run RESTFul service.
 	//
 	// If Linux signal SIGINT or SIGTERM is recevied, the service will quit.
+	my_company_ctrl_t c1;
+	my_school_ctrl_t c2;
 	acceptor.run_http({&c1, &c2});
 
 	return 0;
