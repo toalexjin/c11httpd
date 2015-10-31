@@ -122,10 +122,10 @@ public:
 
 public:
 	explicit rest_ctrl_t(
-		const std::string& virtual_host = std::string(),
-		const std::string& uri_root = std::string()
-	) : m_virtual_host(virtual_host),
-		m_uri_root(uri_root) {
+		const std::string& uri_root = std::string(),
+		const std::string& virtual_host = std::string()
+	) : m_uri_root(uri_root),
+		m_virtual_host(virtual_host) {
 	}
 
 	virtual ~rest_ctrl_t() = default;
@@ -226,8 +226,8 @@ public:
 	}
 
 private:
-	std::string m_virtual_host;
 	std::string m_uri_root;
+	std::string m_virtual_host;
 
 	// Keep this container flat, we will create another
 	// calculating module to dispatch request to each routine quickly.
