@@ -6,6 +6,7 @@
 
 #include "c11httpd/conn.h"
 #include <errno.h>
+#include <signal.h>
 
 
 namespace c11httpd {
@@ -128,6 +129,101 @@ err_t conn_t::send(size_t* new_send_size) {
 	}
 
 	return ret;
+}
+
+err_t conn_t::aio_read(fd_t fd, int64_t offset,
+	char* buf, size_t size, int64_t* id) {
+
+	assert(fd.is_open());
+	assert(offset >= 0);
+	assert(buf != 0 || size == 0);
+	assert(id != 0);
+
+	err_t ret;
+	aio_node_t* node = new aio_node_t();
+
+	*id = (++ m_aio_sequence);
+	node->m_id = *id;
+	node->m_cb.aio_fildes = fd.get();
+	node->m_cb.aio_offset = offset;
+	node->m_cb.aio_buf = (void*) buf;
+	node->m_cb.aio_nbytes = size;
+
+	node->m_cb.aio_sigevent.sigev_notify = SIGEV_SIGNAL;
+	node->m_cb.aio_sigevent.sigev_signo = SIGIO;
+	node->m_cb.aio_sigevent.sigev_value.sival_ptr = this;
+
+	this->m_aio_running[node->m_id] = std::unique_ptr<aio_node_t>(node);
+
+	if (::aio_read(&node->m_cb) != 0) {
+		ret.set_current();
+
+		this->m_aio_running.erase(node->m_id);
+		delete node;
+		node = 0;
+
+		*id = 0;
+	}
+
+	return ret;
+}
+
+err_t conn_t::aio_write(fd_t fd, int64_t offset,
+	const char* buf, size_t size, int64_t* id) {
+
+	assert(fd.is_open());
+	assert(offset >= 0);
+	assert(buf != 0 || size == 0);
+	assert(id != 0);
+
+	err_t ret;
+	aio_node_t* node = new aio_node_t();
+
+	*id = (++ m_aio_sequence);
+	node->m_id = *id;
+	node->m_cb.aio_fildes = fd.get();
+	node->m_cb.aio_offset = offset;
+	node->m_cb.aio_buf = (void*) buf;
+	node->m_cb.aio_nbytes = size;
+
+	node->m_cb.aio_sigevent.sigev_notify = SIGEV_SIGNAL;
+	node->m_cb.aio_sigevent.sigev_signo = SIGIO;
+	node->m_cb.aio_sigevent.sigev_value.sival_ptr = this;
+
+	this->m_aio_running[node->m_id] = std::unique_ptr<aio_node_t>(node);
+
+	if (::aio_write(&node->m_cb) != 0) {
+		ret.set_current();
+
+		this->m_aio_running.erase(node->m_id);
+		delete node;
+		node = 0;
+
+		*id = 0;
+	}
+
+	return ret;
+}
+
+err_t conn_t::aio_cancel(int64_t id) {
+	err_t ret;
+
+	return ret;
+}
+
+void conn_t::aio_completed(std::vector<aio_t>* completed) {
+	assert(completed != 0);
+
+	// Clear content.
+	completed->clear();
+
+	aio_t pub;
+	for (const auto& item : this->m_aio_completed) {
+		item.second->to_pub(&pub);
+		completed->push_back(pub);
+	}
+
+	this->m_aio_completed.clear();
 }
 
 

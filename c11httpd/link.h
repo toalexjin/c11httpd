@@ -22,6 +22,10 @@ public:
 		this->m_next = this;
 	}
 
+	bool empty() const {
+		return this->m_prev == this;
+	}
+
 	// Check if current node is in a list or not.
 	bool linked() const {
 		return this->m_prev != this;

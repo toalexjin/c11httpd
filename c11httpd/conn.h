@@ -10,9 +10,13 @@
 #include "c11httpd/buf.h"
 #include "c11httpd/conn_session.h"
 #include "c11httpd/ctx_setter.h"
+#include "c11httpd/fd.h"
 #include "c11httpd/link.h"
 #include "c11httpd/listen.h"
 #include "c11httpd/socket.h"
+#include <aio.h>
+#include <map>
+#include <memory>
 #include <string>
 
 
@@ -25,11 +29,47 @@ namespace c11httpd {
 // would be created. After the client connection was disconnected,
 // the conn_t object might be re-used by acceptor_t for better performance.
 class conn_t : public waitable_t, public conn_session_t, public ctx_setter_t {
+private:
+	class aio_node_t {
+	public:
+		aio_node_t() : m_link(uintptr_t(&this->m_link) - uintptr_t(this)){
+			this->clear();
+		}
+		aio_node_t(const aio_node_t&) = default;
+		aio_node_t& operator=(const aio_node_t&) = default;
+
+		void clear() {
+			bzero(&m_cb, sizeof(m_cb));
+			m_id = 0;
+			m_error = 0;
+			m_ok_bytes = 0;
+		}
+
+		void to_pub(aio_t* pub) const {
+			assert(pub != 0);
+
+			pub->m_id = m_id;
+			pub->m_error = m_error;
+			pub->m_fd = m_cb.aio_fildes;
+			pub->m_offset = m_cb.aio_offset;
+			pub->m_buf = (char*) m_cb.aio_buf;
+			pub->m_size = m_cb.aio_nbytes;
+			pub->m_ok_bytes = m_ok_bytes;
+		}
+
+		link_t<aio_node_t> m_link;
+		struct aiocb m_cb;
+		int64_t m_id;
+		err_t m_error;
+		size_t m_ok_bytes;
+	};
+
 public:
 	conn_t(const socket_t& sd, const std::string& ip, uint16_t port, bool ipv6)
 		: waitable_t(waitable_t::type_conn),
 		m_ip(ip), m_sd(sd), m_port(port), m_ipv6(ipv6),
-		m_link(uintptr_t(&this->m_link) - uintptr_t(this)) {
+		m_link(uintptr_t(&this->m_link) - uintptr_t(this)),
+		m_aio_sequence(0) {
 
 		assert(this == this->m_link.get());
 		this->m_send_offset = 0;
@@ -98,6 +138,14 @@ public:
 		return &this->m_link;
 	}
 
+	// AIO operations.
+	virtual err_t aio_read(fd_t fd, int64_t offset, char* buf, size_t size, int64_t* id);
+	virtual err_t aio_write(fd_t fd, int64_t offset, const char* buf, size_t size, int64_t* id);
+	virtual err_t aio_cancel(int64_t id);
+
+	// Get completed AIO tasks and remove them from internal list.
+	virtual void aio_completed(std::vector<aio_t>* completed);
+
 private:
 	// Remove default constructor, copy constructor and operator=().
 	conn_t() = delete;
@@ -114,6 +162,9 @@ private:
 	buf_t m_send_buf;
 	size_t m_send_offset;
 	uint32_t m_last_event_result;
+	std::map<int64_t, std::unique_ptr<aio_node_t>> m_aio_running;
+	std::map<int64_t, std::unique_ptr<aio_node_t>> m_aio_completed;
+	int64_t m_aio_sequence;
 };
 
 
