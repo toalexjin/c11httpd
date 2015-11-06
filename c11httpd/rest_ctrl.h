@@ -86,7 +86,7 @@ public:
 	// C routine prototype.
 	typedef rest_result_t (*routine_c_t)(
 		ctx_setter_t&, // Context getter/setter.
-		const conn_session_t&, // Connection session.
+		conn_session_t&, // Connection session.
 		const http_request_t&, // Input request.
 		const std::vector<fast_str_t>&, // URI placeholder values.
 		http_response_t& // Output response.
@@ -96,7 +96,7 @@ public:
 	typedef std::function<
 		rest_result_t(
 			ctx_setter_t&, // Context getter/setter.
-			const conn_session_t&, // Connection session.
+			conn_session_t&, // Connection session.
 			const http_request_t&, // Input request.
 			const std::vector<fast_str_t>&, // URI placeholder values.
 			http_response_t& // Output response.
@@ -106,7 +106,7 @@ public:
 	typedef details::callable_t<
 		rest_result_t,
 		ctx_setter_t&, // Context getter/setter.
-		const conn_session_t&, // Connection session.
+		conn_session_t&, // Connection session.
 		const http_request_t&, // Input request.
 		const std::vector<fast_str_t>&, // URI placeholder values.
 		http_response_t& // Output response.
@@ -165,7 +165,7 @@ public:
 				std::unique_ptr<routine_callable_t>(
 						new details::callable_c_t<
 							routine_c_t, rest_result_t, ctx_setter_t&,
-							const conn_session_t&, const http_request_t&,
+							conn_session_t&, const http_request_t&,
 							const std::vector<fast_str_t>&, http_response_t&
 						>(routine)
 				),
@@ -188,7 +188,7 @@ public:
 				std::unique_ptr<routine_callable_t>(
 						new details::callable_c_t<
 							routine_cpp_t, rest_result_t, ctx_setter_t&,
-							const conn_session_t&, const http_request_t&,
+							conn_session_t&, const http_request_t&,
 							const std::vector<fast_str_t>&, http_response_t&
 						>(routine)
 				),
@@ -203,7 +203,7 @@ public:
 		int method,
 		T* self,
 		rest_result_t (T::*routine)(ctx_setter_t&,
-				const conn_session_t&, const http_request_t&,
+				conn_session_t&, const http_request_t&,
 				const std::vector<fast_str_t>&, http_response_t&),
 		const std::string& request_content_type = std::string(),
 		const std::string& response_content_type = std::string()
@@ -215,7 +215,7 @@ public:
 				std::unique_ptr<routine_callable_t>(
 					new details::callable_cpp_t<
 						T, rest_result_t, ctx_setter_t&,
-						const conn_session_t&, const http_request_t&,
+						conn_session_t&, const http_request_t&,
 						const std::vector<fast_str_t>&, http_response_t&
 					>(self, routine)
 				),

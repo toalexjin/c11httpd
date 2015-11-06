@@ -57,6 +57,11 @@ private:
 			pub->m_ok_bytes = m_ok_bytes;
 		}
 
+		// aio_node_t is saved in a doubly link list.
+		link_t<aio_node_t>* link_node() {
+			return &this->m_link;
+		}
+
 		link_t<aio_node_t> m_link;
 		struct aiocb m_cb;
 		int64_t m_id;
@@ -141,7 +146,7 @@ public:
 	// AIO operations.
 	virtual err_t aio_read(fd_t fd, int64_t offset, char* buf, size_t size, int64_t* id);
 	virtual err_t aio_write(fd_t fd, int64_t offset, const char* buf, size_t size, int64_t* id);
-	virtual err_t aio_cancel(int64_t id);
+	virtual err_t aio_cancel(fd_t fd);
 
 	// Get completed AIO tasks and remove them from internal list.
 	virtual void aio_completed(std::vector<aio_t>* completed);
@@ -162,8 +167,8 @@ private:
 	buf_t m_send_buf;
 	size_t m_send_offset;
 	uint32_t m_last_event_result;
-	std::map<int64_t, std::unique_ptr<aio_node_t>> m_aio_running;
-	std::map<int64_t, std::unique_ptr<aio_node_t>> m_aio_completed;
+	link_t<aio_node_t> m_aio_running;
+	link_t<aio_node_t> m_aio_completed;
 	int64_t m_aio_sequence;
 };
 

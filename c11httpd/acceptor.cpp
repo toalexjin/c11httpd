@@ -18,6 +18,7 @@
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <signal.h>
+#include <sys/signalfd.h>
 
 
 namespace c11httpd {
@@ -31,7 +32,7 @@ const std::string acceptor_t::ipv6_loopback("::1");
 
 
 acceptor_t::acceptor_t(const config_t& cfg)
-	: waitable_t(waitable_t::type_signal), m_config(cfg) {
+	: waitable_t(waitable_t::type_signal), m_config(cfg), m_pid(-1) {
 	// Ignore SIGPIPE.
 	signal_manager_t::instance()->ignore(SIGPIPE);
 }
@@ -171,19 +172,16 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 	int used_count = 0;
 	int free_count = 0;
 	fd_t epoll;
+	fd_t signal_fd;
 	const int events_size = this->m_config.max_epoll_events();
 	struct epoll_event* events = 0;
+	sigset_t signal_mask;
 	socket_t new_sd;
 	std::string new_ip;
 	uint16_t new_port;
 	bool new_ipv6;
-	bool signal_registered = false;
 
 	assert(handler != 0);
-
-	// Hook Linux signal events.
-	signal_manager_t::instance()->add(hook_signals, this);
-	signal_registered = true;
 
 	// Create worker processes.
 	if (this->m_config.worker_processes() > 0) {
@@ -193,6 +191,9 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 		}
 	}
 
+	// Get current process id.
+	this->m_pid = getpid();
+
 	// Create epoll handle.
 	epoll = epoll_create1(EPOLL_CLOEXEC);
 	if (!epoll.is_open()) {
@@ -200,13 +201,31 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 		goto clean;
 	}
 
-	// Create a pair of sockets for forwarding Linux signals to epoll.
-	ret = this->create_signal_sock_i();
-	if (!ret) {
+	sigemptyset(&signal_mask);
+	sigaddset(&signal_mask, SIGTERM);
+	sigaddset(&signal_mask, SIGINT);
+	sigaddset(&signal_mask, SIGCHLD);
+
+	/* Block the signals that we handle using signalfd(), so they don't
+	 * cause signal handlers or default signal actions to execute. */
+	if (sigprocmask(SIG_BLOCK, &signal_mask, 0) < 0) {
+		ret.set_current();
 		goto clean;
 	}
 
-	ret = this->epoll_set_i(epoll, this->m_signal_sock[0], this, EPOLL_CTL_ADD, EPOLLIN | EPOLLET);
+	// Hook Linux signal events.
+	signal_fd = signalfd(-1, &signal_mask, 0);
+	if (!signal_fd.is_open()) {
+		ret.set_current();
+		goto clean;
+	}
+
+	// Set non-block & cloexec flags.
+	signal_fd.nonblock(true);
+	signal_fd.cloexec(true);
+
+	// Add signal fd to epoll.
+	ret = this->epoll_set_i(epoll, signal_fd.get(), this, EPOLL_CTL_ADD, EPOLLIN | EPOLLET);
 	if (!ret) {
 		goto clean;
 	}
@@ -242,7 +261,7 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 			if (waitable->wait_type() == waitable_t::type_signal) {
 				bool exit;
 
-				ret = this->recv_signal_sock_i(&epoll, &exit);
+				ret = this->handle_signal_i(epoll, signal_fd, &exit);
 				if (!ret || exit) {
 					goto clean;
 				}
@@ -430,15 +449,10 @@ clean:
 	}
 
 	epoll.close();
-	this->close_signal_sock_i();
+	signal_fd.close();
 
 	// Kill all worker process.
 	this->m_worker_pool.kill_all();
-
-	if (signal_registered) {
-		signal_manager_t::instance()->remove(hook_signals, this);
-		signal_registered = false;
-	}
 
 	return ret;
 }
@@ -463,11 +477,16 @@ err_t acceptor_t::run_http(const std::vector<rest_ctrl_t*>& controllers) {
 }
 
 err_t acceptor_t::stop() {
-	return this->send_signal_sock_i(SIGTERM);
-}
+	err_t ret;
+	const auto pid = this->m_pid;
 
-void acceptor_t::on_signalled(int signum) {
-	this->send_signal_sock_i(signum);
+	if (pid != -1) {
+		if (::kill(pid, SIGTERM) == -1) {
+			ret.set_current();
+		}
+	}
+
+	return ret;
 }
 
 err_t acceptor_t::epoll_set_i(fd_t epoll, socket_t sock,
@@ -533,54 +552,19 @@ err_t acceptor_t::loop_send_i(conn_event_t* handler, conn_t* conn) {
 	return ret;
 }
 
-err_t acceptor_t::create_signal_sock_i() {
-	err_t ret;
-	int fd[2];
-
-	// Lock.
-	this->m_signal_sock_mutex.lock();
-
-	assert(this->m_signal_sock[0].closed());
-	assert(this->m_signal_sock[1].closed());
-
-	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0, fd) == -1) {
-		ret = err_t::current();
-	} else {
-		this->m_signal_sock[0] = fd[0];
-		this->m_signal_sock[1] = fd[1];
-	}
-
-	// Unlock.
-	this->m_signal_sock_mutex.unlock();
-
-	return ret;
-}
-
-void acceptor_t::close_signal_sock_i() {
-	// Lock.
-	this->m_signal_sock_mutex.lock();
-
-	this->m_signal_sock[0].close();
-	this->m_signal_sock[1].close();
-
-	// Unlock.
-	this->m_signal_sock_mutex.unlock();
-}
-
-err_t acceptor_t::recv_signal_sock_i(fd_t* epoll, bool* exit) {
+err_t acceptor_t::handle_signal_i(fd_t epoll, fd_t signal_fd, bool* exit) {
 	err_t ret;
 	int dead_workers = 0;
-	uint8_t buf[256];
-	size_t ok_bytes;
+	char buf[512];
+	size_t ok_bytes = 0;
 
-	assert(m_signal_sock[0].is_open());
 	assert(exit != 0);
 
 	// Clear content.
 	*exit = false;
 
 	while (true) {
-		ret = this->m_signal_sock[0].recv(buf, sizeof(buf), &ok_bytes);
+		//ret = this->m_signal_sock[0].recv(buf, sizeof(buf), &ok_bytes);
 		if (!ret) {
 			if (ret == EAGAIN || ret == EWOULDBLOCK) {
 				ret.set_ok();
@@ -616,37 +600,15 @@ err_t acceptor_t::recv_signal_sock_i(fd_t* epoll, bool* exit) {
 		&& this->m_worker_pool.main_process()
 		&& this->m_config.worker_processes() > 0) {
 
-		// Close handles before fork to avoid child process get them.
-		epoll->close();
-		this->close_signal_sock_i();
-
 		// Create worker processes.
 		this->m_worker_pool.create(dead_workers);
-
-		// Create epoll handle.
-		*epoll = epoll_create1(EPOLL_CLOEXEC);
-		if (!epoll->is_open()) {
-			ret.set_current();
-			goto clean;
-		}
-
-		// Create a pair of sockets for forwarding Linux signals to epoll.
-		ret = this->create_signal_sock_i();
-		if (!ret) {
-			goto clean;
-		}
-
-		ret = this->epoll_set_i(*epoll, this->m_signal_sock[0], this, EPOLL_CTL_ADD, EPOLLIN | EPOLLET);
-		if (!ret) {
-			goto clean;
-		}
 
 		// Child process gets parent process' handles,
 		// we need to close & re-create them.
 		if (!this->m_worker_pool.main_process()) {
 			// Add listening sockets.
 			for (auto it = this->m_listens.begin(); it != this->m_listens.end(); ++it) {
-				ret = this->epoll_set_i(*epoll, (*it).get()->sock(), (*it).get(), EPOLL_CTL_ADD, EPOLLIN | EPOLLET);
+				ret = this->epoll_set_i(epoll, (*it).get()->sock(), (*it).get(), EPOLL_CTL_ADD, EPOLLIN | EPOLLET);
 				if (!ret) {
 					goto clean;
 				}
@@ -661,24 +623,6 @@ clean:
 	return ret;
 }
 
-err_t acceptor_t::send_signal_sock_i(int signum) {
-	err_t ret;
-
-	// Lock.
-	this->m_signal_sock_mutex.lock();
-
-	if (this->m_signal_sock[1].is_open()) {
-		size_t ok_bytes;
-		const uint8_t data(signum);
-
-		ret = this->m_signal_sock[1].send(&data, sizeof(data), &ok_bytes);
-	}
-
-	// Unlock.
-	this->m_signal_sock_mutex.unlock();
-
-	return ret;
-}
 
 
 } // namespace c11httpd.

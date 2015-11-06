@@ -153,12 +153,12 @@ err_t conn_t::aio_read(fd_t fd, int64_t offset,
 	node->m_cb.aio_sigevent.sigev_signo = SIGIO;
 	node->m_cb.aio_sigevent.sigev_value.sival_ptr = this;
 
-	this->m_aio_running[node->m_id] = std::unique_ptr<aio_node_t>(node);
+	this->m_aio_running.push_back(node->link_node());
 
 	if (::aio_read(&node->m_cb) != 0) {
 		ret.set_current();
 
-		this->m_aio_running.erase(node->m_id);
+		node->link_node()->unlink();
 		delete node;
 		node = 0;
 
@@ -190,12 +190,12 @@ err_t conn_t::aio_write(fd_t fd, int64_t offset,
 	node->m_cb.aio_sigevent.sigev_signo = SIGIO;
 	node->m_cb.aio_sigevent.sigev_value.sival_ptr = this;
 
-	this->m_aio_running[node->m_id] = std::unique_ptr<aio_node_t>(node);
+	this->m_aio_running.push_back(node->link_node());
 
 	if (::aio_write(&node->m_cb) != 0) {
 		ret.set_current();
 
-		this->m_aio_running.erase(node->m_id);
+		node->link_node()->unlink();
 		delete node;
 		node = 0;
 
@@ -205,8 +205,12 @@ err_t conn_t::aio_write(fd_t fd, int64_t offset,
 	return ret;
 }
 
-err_t conn_t::aio_cancel(int64_t id) {
+err_t conn_t::aio_cancel(fd_t fd) {
 	err_t ret;
+
+	if (::aio_cancel(fd.get(), 0) == -1) {
+		ret.set_current();
+	}
 
 	return ret;
 }
@@ -217,13 +221,15 @@ void conn_t::aio_completed(std::vector<aio_t>* completed) {
 	// Clear content.
 	completed->clear();
 
-	aio_t pub;
-	for (const auto& item : this->m_aio_completed) {
-		item.second->to_pub(&pub);
+	this->m_aio_completed.for_each([completed](aio_node_t* node){
+		aio_t pub;
+		node->to_pub(&pub);
 		completed->push_back(pub);
-	}
+		node->link_node()->unlink();
+		delete node;
+	});
 
-	this->m_aio_completed.clear();
+	assert(this->m_aio_completed.empty());
 }
 
 

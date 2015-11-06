@@ -29,7 +29,7 @@ std::set<c11httpd::signal_event_t*> st_handlers[st_max_signal];
 struct sigaction st_old[st_max_signal];
 
 
-void signal_proc(int signum) {
+void signal_proc(int signum, siginfo_t* info, void* context) {
 	if (signum <= 0 || signum > st_max_signal) {
 		return;
 	}
@@ -44,7 +44,7 @@ void signal_proc(int signum) {
 	for (auto it = st_handlers[signum - 1].cbegin();
 			it != st_handlers[signum - 1].cend();
 			++it) {
-		(*it)->on_signalled(signum);
+		(*it)->on_signalled(signum, info, context);
 	}
 
 	// Unlock
@@ -59,8 +59,8 @@ void add_signal_hooker(int signum) {
 	struct sigaction sa;
 
 	bzero(&sa, sizeof(sa));
-	sa.sa_handler = &signal_proc;
-	sa.sa_flags = SA_RESTART;
+	sa.sa_flags = SA_RESTART | SA_SIGINFO;
+	sa.sa_sigaction = &signal_proc;
 	sigfillset(&sa.sa_mask);
 	sigaction(signum, &sa, &st_old[signum - 1]);
 }

@@ -39,7 +39,7 @@ namespace c11httpd {
 // acceptor_t would create a conn_t object for the new connection.
 // When the connection was disconnected, acceptor_t would put the
 // conn_t object to a free list (for re-use) or destroy it.
-class acceptor_t : public waitable_t, public signal_event_t {
+class acceptor_t : public waitable_t {
 public:
 	// "0.0.0.0"
 	static const std::string ipv4_any;
@@ -129,9 +129,6 @@ public:
 	// or triggered by Linux signal.
 	err_t stop();
 
-	// Triggered when a Linux signal is received.
-	virtual void on_signalled(int signum);
-
 private:
 	// Remove copy constructor, and operator=().
 	acceptor_t(const acceptor_t&) = delete;
@@ -142,17 +139,13 @@ private:
 	err_t epoll_del_i(fd_t epoll, socket_t sock);
 	void add_free_conn_i(link_t<conn_t>* free_list, int* free_count, conn_t* conn);
 	err_t loop_send_i(conn_event_t* handler, conn_t* conn);
-	err_t create_signal_sock_i();
-	void close_signal_sock_i();
-	err_t recv_signal_sock_i(fd_t* epoll, bool* exit);
-	err_t send_signal_sock_i(int signum);
+	err_t handle_signal_i(fd_t epoll, fd_t signal_fd, bool* exit);
 
 private:
 	std::vector<std::unique_ptr<listen_t>> m_listens;
 	worker_pool_t m_worker_pool;
-	std::recursive_mutex m_signal_sock_mutex;
-	socket_t m_signal_sock[2];
 	config_t m_config;
+	pid_t m_pid;
 };
 
 

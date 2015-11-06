@@ -60,6 +60,9 @@ public:
 	bool nonblock() const;
 	err_t nonblock(bool flag);
 
+	bool cloexec() const;
+	err_t cloexec(bool flag);
+
 private:
 	int m_fd;
 };

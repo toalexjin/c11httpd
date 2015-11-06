@@ -59,7 +59,7 @@ public:
 	// @return A combination value of "result_???"
 	virtual uint32_t on_connected(
 		ctx_setter_t& ctx_setter, const config_t& cfg,
-		const conn_session_t& session, buf_t& send_buf) = 0;
+		conn_session_t& session, buf_t& send_buf) = 0;
 
 	// Connection was disconnected.
 	//
@@ -75,7 +75,7 @@ public:
 	// Otherwise, the context object could NOT be re-used by next incoming connection.
 	virtual void on_disconnected(
 		ctx_setter_t& ctx_setter, const config_t& cfg,
-		const conn_session_t& session) = 0;
+		conn_session_t& session) = 0;
 
 	// New data was received.
 	//
@@ -94,7 +94,7 @@ public:
 	// @return A combination value of "result_???"
 	virtual uint32_t on_received(
 		ctx_setter_t& ctx_setter, const config_t& cfg,
-		const conn_session_t& session,
+		conn_session_t& session,
 		buf_t& recv_buf, buf_t& send_buf) = 0;
 
 	// Get more data to send.
@@ -106,7 +106,7 @@ public:
 	// @return A combination value of "result_???"
 	virtual uint32_t get_more_data(
 		ctx_setter_t& ctx_setter, const config_t& cfg,
-		const conn_session_t& session,
+		conn_session_t& session,
 		buf_t& send_buf) = 0;
 };
 

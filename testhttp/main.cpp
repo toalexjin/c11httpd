@@ -23,7 +23,7 @@ public:
 
 	c11httpd::rest_result_t handle_root(
 			c11httpd::ctx_setter_t& ctx_setter,
-			const c11httpd::conn_session_t& session,
+			c11httpd::conn_session_t& session,
 			const c11httpd::http_request_t& request,
 			const std::vector<c11httpd::fast_str_t>& placeholders,
 			c11httpd::http_response_t& response);
@@ -37,7 +37,7 @@ my_ctrl_t::my_ctrl_t() {
 
 c11httpd::rest_result_t my_ctrl_t::handle_root(
 		c11httpd::ctx_setter_t& ctx_setter,
-		const c11httpd::conn_session_t& session,
+		c11httpd::conn_session_t& session,
 		const c11httpd::http_request_t& request,
 		const std::vector<c11httpd::fast_str_t>& placeholders,
 		c11httpd::http_response_t& response) {

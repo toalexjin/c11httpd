@@ -44,7 +44,7 @@ public:
 	// AIO operations.
 	virtual err_t aio_read(fd_t fd, int64_t offset, char* buf, size_t size, int64_t* id) = 0;
 	virtual err_t aio_write(fd_t fd, int64_t offset, const char* buf, size_t size, int64_t* id) = 0;
-	virtual err_t aio_cancel(int64_t id) = 0;
+	virtual err_t aio_cancel(fd_t fd) = 0;
 
 	// Get completed AIO tasks.
 	virtual void aio_completed(std::vector<aio_t>* completed) = 0;

@@ -7,6 +7,7 @@
 #pragma once
 
 #include "c11httpd/pre__.h"
+#include <signal.h>
 
 
 namespace c11httpd {
@@ -21,7 +22,7 @@ public:
 	virtual ~signal_event_t() = default;
 
 	// Triggered when a Linux signal is received.
-	virtual void on_signalled(int signum);
+	virtual void on_signalled(int signum, siginfo_t* info, void* context);
 };
 
 

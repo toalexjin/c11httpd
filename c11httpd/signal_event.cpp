@@ -10,7 +10,7 @@
 namespace c11httpd {
 
 
-void signal_event_t::on_signalled(int signum) {
+void signal_event_t::on_signalled(int signum, siginfo_t* info, void* context) {
 	(void) &signum;
 };
 

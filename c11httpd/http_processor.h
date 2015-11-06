@@ -31,21 +31,21 @@ public:
 
 	virtual uint32_t on_connected(
 		ctx_setter_t& ctx_setter, const config_t& cfg,
-		const conn_session_t& session,
+		conn_session_t& session,
 		buf_t& send_buf);
 
 	virtual void on_disconnected(
 		ctx_setter_t& ctx_setter, const config_t& cfg,
-		const conn_session_t& session);
+		conn_session_t& session);
 
 	virtual uint32_t on_received(
 		ctx_setter_t& ctx_setter, const config_t& cfg,
-		const conn_session_t& session,
+		conn_session_t& session,
 		buf_t& recv_buf, buf_t& send_buf);
 
 	virtual uint32_t get_more_data(
 		ctx_setter_t& ctx_setter, const config_t& cfg,
-		const conn_session_t& session,
+		conn_session_t& session,
 		buf_t& send_buf);
 
 private:
@@ -53,7 +53,7 @@ private:
 	//
 	// @return A value of rest_result_t.
 	rest_result_t process_i(
-		const config_t& cfg, const conn_session_t& session,
+		const config_t& cfg, conn_session_t& session,
 		http_conn_t* http_conn, buf_t* send_buf);
 
 private:

@@ -12,19 +12,19 @@ namespace c11httpd {
 
 uint32_t http_processor_t::on_connected(
 	ctx_setter_t& ctx_setter, const config_t& cfg,
-	const conn_session_t& session,
+	conn_session_t& session,
 	buf_t& send_buf) {
 	return 0;
 }
 
 void http_processor_t::on_disconnected(
 	ctx_setter_t& ctx_setter, const config_t& cfg,
-	const conn_session_t& session) {
+	conn_session_t& session) {
 }
 
 uint32_t http_processor_t::on_received(
 	ctx_setter_t& ctx_setter, const config_t& cfg,
-	const conn_session_t& session,
+	conn_session_t& session,
 	buf_t& recv_buf, buf_t& send_buf) {
 
 	// Create a new HTTP session object if it's not created.
@@ -71,7 +71,7 @@ uint32_t http_processor_t::on_received(
 }
 
 rest_result_t http_processor_t::process_i(
-	const config_t& cfg, const conn_session_t& session,
+	const config_t& cfg, conn_session_t& session,
 	http_conn_t* http_conn, buf_t* send_buf) {
 	assert(http_conn != 0);
 
@@ -94,7 +94,7 @@ rest_result_t http_processor_t::process_i(
 
 uint32_t http_processor_t::get_more_data(
 	ctx_setter_t& ctx_setter, const config_t& cfg,
-	const conn_session_t& session, buf_t& send_buf) {
+	conn_session_t& session, buf_t& send_buf) {
 	return 0;
 }
 
