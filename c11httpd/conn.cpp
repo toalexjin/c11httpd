@@ -12,6 +12,8 @@
 namespace c11httpd {
 
 
+const int conn_t::aio_signal_id = SIGRTMIN + 1;
+
 conn_t::~conn_t() {
 	this->close();
 }
@@ -151,7 +153,7 @@ err_t conn_t::aio_read(fd_t fd, int64_t offset,
 
 	node->m_cb.aio_sigevent.sigev_notify = SIGEV_SIGNAL;
 	node->m_cb.aio_sigevent.sigev_signo = SIGIO;
-	node->m_cb.aio_sigevent.sigev_value.sival_ptr = this;
+	node->m_cb.aio_sigevent.sigev_value.sival_ptr = node;
 
 	this->m_aio_running.push_back(node->link_node());
 
@@ -188,7 +190,7 @@ err_t conn_t::aio_write(fd_t fd, int64_t offset,
 
 	node->m_cb.aio_sigevent.sigev_notify = SIGEV_SIGNAL;
 	node->m_cb.aio_sigevent.sigev_signo = SIGIO;
-	node->m_cb.aio_sigevent.sigev_value.sival_ptr = this;
+	node->m_cb.aio_sigevent.sigev_value.sival_ptr = node;
 
 	this->m_aio_running.push_back(node->link_node());
 

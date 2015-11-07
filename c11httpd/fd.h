@@ -7,6 +7,7 @@
 #pragma once
 
 #include "c11httpd/pre__.h"
+#include "c11httpd/buf.h"
 #include "c11httpd/err.h"
 
 
@@ -62,6 +63,9 @@ public:
 
 	bool cloexec() const;
 	err_t cloexec(bool flag);
+
+	// Non-block read.
+	err_t read_nonblock(buf_t* read_buf, size_t* new_read_size, bool* eof);
 
 private:
 	int m_fd;

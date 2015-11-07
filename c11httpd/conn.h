@@ -29,7 +29,7 @@ namespace c11httpd {
 // would be created. After the client connection was disconnected,
 // the conn_t object might be re-used by acceptor_t for better performance.
 class conn_t : public waitable_t, public conn_session_t, public ctx_setter_t {
-private:
+public:
 	class aio_node_t {
 	public:
 		aio_node_t() : m_link(uintptr_t(&this->m_link) - uintptr_t(this)){
@@ -156,6 +156,10 @@ private:
 	conn_t() = delete;
 	conn_t(const conn_t&) = delete;
 	conn_t& operator=(const conn_t&) = delete;
+
+public:
+	// AIO signal id.
+	static const int aio_signal_id;
 
 private:
 	std::string m_ip;

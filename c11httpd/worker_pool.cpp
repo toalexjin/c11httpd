@@ -5,7 +5,6 @@
  */
 
 #include "c11httpd/worker_pool.h"
-#include <sys/types.h>
 #include <signal.h>
 
 
@@ -24,6 +23,7 @@ err_t worker_pool_t::create(int number) {
 		}
 
 		if (pid == 0) {
+			this->m_self_pid = getpid();
 			this->m_main_process = false;
 			break;
 		} else {

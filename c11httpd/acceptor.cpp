@@ -11,6 +11,7 @@
 #include "c11httpd/link.h"
 #include "c11httpd/signal_manager.h"
 #include "c11httpd/socket.h"
+#include "c11httpd/waitable.h"
 #include <cstring>
 #include <cerrno>
 #include <sys/epoll.h>
@@ -32,7 +33,7 @@ const std::string acceptor_t::ipv6_loopback("::1");
 
 
 acceptor_t::acceptor_t(const config_t& cfg)
-	: waitable_t(waitable_t::type_signal), m_config(cfg), m_pid(-1) {
+	: m_config(cfg) {
 	// Ignore SIGPIPE.
 	signal_manager_t::instance()->ignore(SIGPIPE);
 }
@@ -166,7 +167,7 @@ std::vector<std::pair<std::string, uint16_t>> acceptor_t::binds() const {
 
 err_t acceptor_t::run_tcp(conn_event_t* handler) {
 	err_t ret;
-	const std::vector<int> hook_signals({SIGTERM, SIGINT, SIGCHLD});
+	const waitable_t waitable_signal(waitable_t::type_signal);
 	link_t<conn_t> used_list;
 	link_t<conn_t> free_list;
 	int used_count = 0;
@@ -191,9 +192,6 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 		}
 	}
 
-	// Get current process id.
-	this->m_pid = getpid();
-
 	// Create epoll handle.
 	epoll = epoll_create1(EPOLL_CLOEXEC);
 	if (!epoll.is_open()) {
@@ -205,27 +203,25 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 	sigaddset(&signal_mask, SIGTERM);
 	sigaddset(&signal_mask, SIGINT);
 	sigaddset(&signal_mask, SIGCHLD);
+	sigaddset(&signal_mask, conn_t::aio_signal_id);
 
 	/* Block the signals that we handle using signalfd(), so they don't
 	 * cause signal handlers or default signal actions to execute. */
-	if (sigprocmask(SIG_BLOCK, &signal_mask, 0) < 0) {
+	if (sigprocmask(SIG_BLOCK, &signal_mask, 0) == -1) {
 		ret.set_current();
 		goto clean;
 	}
 
 	// Hook Linux signal events.
-	signal_fd = signalfd(-1, &signal_mask, 0);
+	signal_fd = signalfd(-1, &signal_mask, SFD_NONBLOCK | SFD_CLOEXEC);
 	if (!signal_fd.is_open()) {
 		ret.set_current();
 		goto clean;
 	}
 
-	// Set non-block & cloexec flags.
-	signal_fd.nonblock(true);
-	signal_fd.cloexec(true);
-
 	// Add signal fd to epoll.
-	ret = this->epoll_set_i(epoll, signal_fd.get(), this, EPOLL_CTL_ADD, EPOLLIN | EPOLLET);
+	ret = this->epoll_set_i(epoll, signal_fd.get(),
+		&waitable_signal, EPOLL_CTL_ADD, EPOLLIN | EPOLLET);
 	if (!ret) {
 		goto clean;
 	}
@@ -256,12 +252,12 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 		}
 
 		for (int i = 0; i < wait_result; ++i) {
-			auto waitable = (waitable_t*) events[i].data.ptr;
+			auto waitable = (const waitable_t*) events[i].data.ptr;
 
 			if (waitable->wait_type() == waitable_t::type_signal) {
 				bool exit;
 
-				ret = this->handle_signal_i(epoll, signal_fd, &exit);
+				ret = this->on_signalled_i(epoll, signal_fd, &exit);
 				if (!ret || exit) {
 					goto clean;
 				}
@@ -478,9 +474,9 @@ err_t acceptor_t::run_http(const std::vector<rest_ctrl_t*>& controllers) {
 
 err_t acceptor_t::stop() {
 	err_t ret;
-	const auto pid = this->m_pid;
+	const auto pid = this->m_worker_pool.self_pid();
 
-	if (pid != -1) {
+	if (pid > 0) {
 		if (::kill(pid, SIGTERM) == -1) {
 			ret.set_current();
 		}
@@ -490,14 +486,14 @@ err_t acceptor_t::stop() {
 }
 
 err_t acceptor_t::epoll_set_i(fd_t epoll, socket_t sock,
-	waitable_t* waitable, int op, uint32_t events) {
+	const waitable_t* waitable, int op, uint32_t events) {
 	assert(epoll.is_open());
 	assert(sock.is_open());
 	assert(waitable != 0);
 
 	struct epoll_event event;
 
-	event.data.ptr = waitable;
+	event.data.ptr = (void*) waitable;
 	event.events = events;
 
 	return epoll_ctl(epoll.get(), op, sock.get(), &event);
@@ -552,77 +548,102 @@ err_t acceptor_t::loop_send_i(conn_event_t* handler, conn_t* conn) {
 	return ret;
 }
 
-err_t acceptor_t::handle_signal_i(fd_t epoll, fd_t signal_fd, bool* exit) {
+err_t acceptor_t::on_signalled_i(fd_t epoll, fd_t signal_fd, bool* exit) {
 	err_t ret;
+	size_t new_read_size;
+	bool eof;
 	int dead_workers = 0;
-	char buf[512];
-	size_t ok_bytes = 0;
+	const struct signalfd_siginfo* ptr;
 
 	assert(exit != 0);
 
 	// Clear content.
 	*exit = false;
 
-	while (true) {
-		//ret = this->m_signal_sock[0].recv(buf, sizeof(buf), &ok_bytes);
-		if (!ret) {
-			if (ret == EAGAIN || ret == EWOULDBLOCK) {
-				ret.set_ok();
-			}
+	// Read signal info.
+	ret = signal_fd.read_nonblock(&this->m_signal_buf, &new_read_size, &eof);
+	if (!ret) {
+		return ret;
+	}
 
-			break;
-		}
+	ptr = (const struct signalfd_siginfo*) this->m_signal_buf.front();
+	const size_t times = this->m_signal_buf.size() / sizeof(struct signalfd_siginfo);
 
-		for (size_t i = 0; i < ok_bytes; ++i) {
-			if (buf[i] == SIGINT || buf[i] == SIGTERM) {
-				*exit = true;
-				ret.set_ok();
-				goto clean;
-			} else if (buf[i] == SIGCHLD) {
-				while (true) {
-					int status;
-					const auto pid = waitpid(-1, &status, WNOHANG);
-
-					if (pid > 0) {
-						if (this->m_worker_pool.on_terminated(pid)) {
-							++ dead_workers;
-						}
-					} else {
-						break;
-					}
-				}
-			}
+	for (size_t i = 0; i < times; ++i) {
+		if (ptr[i].ssi_signo == SIGINT || ptr[i].ssi_signo == SIGTERM) {
+			*exit = true;
+		} else if (ptr[i].ssi_signo == SIGCHLD) {
+			dead_workers += this->on_worker_terminated_i();
+		} else if (int(ptr[i].ssi_signo) == conn_t::aio_signal_id) {
+			this->on_aio_completed_i((conn_t::aio_node_t*) ptr[i].ssi_ptr);
+		} else {
+			// Should not run here!
+			assert(false);
 		}
 	}
 
-	// Re-start worker processes if they died.
-	if (dead_workers > 0
-		&& this->m_worker_pool.main_process()
-		&& this->m_config.worker_processes() > 0) {
+	// Remove processed signal information from buf_t.
+	this->m_signal_buf.erase_front(times * sizeof(struct signalfd_siginfo));
 
-		// Create worker processes.
-		this->m_worker_pool.create(dead_workers);
-
-		// Child process gets parent process' handles,
-		// we need to close & re-create them.
-		if (!this->m_worker_pool.main_process()) {
-			// Add listening sockets.
-			for (auto it = this->m_listens.begin(); it != this->m_listens.end(); ++it) {
-				ret = this->epoll_set_i(epoll, (*it).get()->sock(), (*it).get(), EPOLL_CTL_ADD, EPOLLIN | EPOLLET);
-				if (!ret) {
-					goto clean;
-				}
-			}
+	// Restart dead worker processes.
+	if (dead_workers > 0) {
+		ret = this->restart_worker_i(epoll, dead_workers);
+		if (!ret) {
+			return ret;
 		}
 	}
 
 	ret.set_ok();
-
-clean:
-
 	return ret;
 }
 
+void acceptor_t::on_aio_completed_i(conn_t::aio_node_t* aio_node) {
+}
+
+int acceptor_t::on_worker_terminated_i() {
+	int dead_workers = 0;
+
+	while (true) {
+		int status;
+		const auto pid = waitpid(-1, &status, WNOHANG);
+
+		if (pid > 0) {
+			if (this->m_worker_pool.on_terminated(pid)) {
+				++ dead_workers;
+			}
+		} else {
+			break;
+		}
+	}
+
+	return dead_workers;
+}
+
+err_t acceptor_t::restart_worker_i(fd_t epoll, int dead_workers) {
+	err_t ret;
+
+	// Re-start worker processes if they died.
+	if (dead_workers <= 0
+		|| !this->m_worker_pool.main_process()
+		|| this->m_config.worker_processes() <= 0) {
+		return ret;
+	}
+
+	// Create worker processes.
+	this->m_worker_pool.create(dead_workers);
+
+	if (!this->m_worker_pool.main_process()) {
+		// Add listening sockets.
+		for (auto it = this->m_listens.begin(); it != this->m_listens.end(); ++it) {
+			ret = this->epoll_set_i(epoll, (*it).get()->sock(), (*it).get(), EPOLL_CTL_ADD, EPOLLIN | EPOLLET);
+			if (!ret) {
+				break;
+			}
+		}
+	}
+
+	return ret;
+}
 
 
 } // namespace c11httpd.

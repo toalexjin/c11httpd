@@ -66,6 +66,52 @@ err_t fd_t::cloexec(bool flag) {
 	return err_t();
 }
 
+err_t fd_t::read_nonblock(buf_t* read_buf, size_t* new_read_size, bool* eof) {
+	err_t ret;
+	const size_t unit_size = 1024;
+
+	assert(new_read_size != 0);
+	assert(eof != 0);
+
+	*new_read_size = 0;
+	*eof = false;
+
+	read_buf->back(unit_size);
+	while (1) {
+		const int ok_bytes = ::read(this->m_fd, read_buf->back(), read_buf->free_size());
+		if (ok_bytes == -1) {
+			ret.set_current();
+			if (ret == EAGAIN || ret == EWOULDBLOCK) {
+				ret.set_ok();
+			}
+
+			break;
+		}
+
+		if (ok_bytes == 0) {
+			*eof = true;
+			break;
+		}
+
+		*new_read_size += ok_bytes;
+		read_buf->add_size(ok_bytes);
+
+		// If no free buffer any more, it probably means there are more data to read.
+		// Otherwise, it should be no more data to read and we do not need to re-allocate buffer.
+		// Anyway, we should not stop until getting EAGAIN or EWOULDBLOCK.
+		if (read_buf->free_size() == 0) {
+			read_buf->back(unit_size);
+		}
+	}
+
+	// If there are free space, then add a null-terminal to make debug easier.
+	if (read_buf->free_size() > 0) {
+		read_buf->back()[0] = 0;
+	}
+
+	return ret;
+}
+
 
 } // namespace c11httpd.
 

@@ -9,7 +9,8 @@
 #include "c11httpd/pre__.h"
 #include "c11httpd/err.h"
 #include <set>
-#include "unistd.h"
+#include <sys/types.h>
+#include <unistd.h>
 
 
 namespace c11httpd {
@@ -19,11 +20,24 @@ namespace c11httpd {
 class worker_pool_t {
 public:
 	worker_pool_t() {
+		this->m_self_pid = getpid();
 		this->m_main_process = true;
 	}
 
 	bool main_process() const {
 		return this->m_main_process;
+	}
+
+	// Get process id.
+	//
+	// Note that in a signal handler function, Linux system API getpid()
+	// would return the caller process that sends the Linux signal,
+	// not the callee process receives the Linux signal.
+	//
+	// Different from Linux system API getpid(), self_pid() returns
+	// the callee process id, not the caller process id.
+	pid_t self_pid() const {
+		return this->m_self_pid;
 	}
 
 	// Create a process worker.
@@ -44,6 +58,7 @@ public:
 
 private:
 	std::set<pid_t> m_workers;
+	pid_t m_self_pid;
 	bool m_main_process;
 };
 

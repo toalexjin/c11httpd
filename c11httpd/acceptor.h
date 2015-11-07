@@ -7,6 +7,7 @@
 #pragma once
 
 #include "c11httpd/pre__.h"
+#include "c11httpd/buf.h"
 #include "c11httpd/config.h"
 #include "c11httpd/conn.h"
 #include "c11httpd/conn_event.h"
@@ -14,19 +15,18 @@
 #include "c11httpd/err.h"
 #include "c11httpd/link.h"
 #include "c11httpd/listen.h"
+#include "c11httpd/waitable.h"
 #include "c11httpd/worker_pool.h"
 #include "c11httpd/rest_ctrl.h"
 #include "c11httpd/signal_event.h"
 #include "c11httpd/socket.h"
-#include "c11httpd/waitable.h"
+#include <functional>
 #include <initializer_list>
 #include <memory>
-#include <mutex>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
-#include <functional>
-#include <set>
 
 
 namespace c11httpd {
@@ -39,7 +39,7 @@ namespace c11httpd {
 // acceptor_t would create a conn_t object for the new connection.
 // When the connection was disconnected, acceptor_t would put the
 // conn_t object to a free list (for re-use) or destroy it.
-class acceptor_t : public waitable_t {
+class acceptor_t {
 public:
 	// "0.0.0.0"
 	static const std::string ipv4_any;
@@ -135,17 +135,36 @@ private:
 	acceptor_t& operator=(const acceptor_t&) = delete;
 
 private:
-	err_t epoll_set_i(fd_t epoll, socket_t sock, waitable_t* waitable, int op, uint32_t events);
+	// Add/update epoll item.
+	err_t epoll_set_i(fd_t epoll, socket_t sock,
+		const waitable_t* waitable, int op, uint32_t events);
+
+	// Delete epoll item.
 	err_t epoll_del_i(fd_t epoll, socket_t sock);
+
+	// Add a free connection object.
 	void add_free_conn_i(link_t<conn_t>* free_list, int* free_count, conn_t* conn);
+
+	// Send data until send_buf is full.
 	err_t loop_send_i(conn_event_t* handler, conn_t* conn);
-	err_t handle_signal_i(fd_t epoll, fd_t signal_fd, bool* exit);
+
+	// Linux signal received.
+	err_t on_signalled_i(fd_t epoll, fd_t signal_fd, bool* exit);
+
+	// AIO completed.
+	void on_aio_completed_i(conn_t::aio_node_t* aio_node);
+
+	// Return number of terminated worker processes.
+	int on_worker_terminated_i();
+
+	// Restart terminated worker processes.
+	err_t restart_worker_i(fd_t epoll, int dead_workers);
 
 private:
 	std::vector<std::unique_ptr<listen_t>> m_listens;
 	worker_pool_t m_worker_pool;
 	config_t m_config;
-	pid_t m_pid;
+	buf_t m_signal_buf;
 };
 
 
