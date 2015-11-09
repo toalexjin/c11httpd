@@ -133,6 +133,19 @@ err_t conn_t::send(size_t* new_send_size) {
 	return ret;
 }
 
+void conn_t::on_aio_completed_i(conn_t::aio_node_t* aio_node) {
+	assert(aio_node != 0);
+
+	aio_node->m_error = aio_error(&aio_node->m_cb);
+	if (aio_node->m_error != EINPROGRESS) {
+		aio_node->m_ok_bytes = aio_return(&aio_node->m_cb);
+	}
+
+	// Move the node from running list to completed list.
+	aio_node->m_link.unlink();
+	this->m_aio_completed.push_back(&aio_node->m_link);
+}
+
 err_t conn_t::aio_read(fd_t fd, int64_t offset,
 	char* buf, size_t size, int64_t* id) {
 
@@ -142,7 +155,7 @@ err_t conn_t::aio_read(fd_t fd, int64_t offset,
 	assert(id != 0);
 
 	err_t ret;
-	aio_node_t* node = new aio_node_t();
+	aio_node_t* node = new aio_node_t(this);
 
 	*id = (++ m_aio_sequence);
 	node->m_id = *id;
@@ -155,15 +168,12 @@ err_t conn_t::aio_read(fd_t fd, int64_t offset,
 	node->m_cb.aio_sigevent.sigev_signo = SIGIO;
 	node->m_cb.aio_sigevent.sigev_value.sival_ptr = node;
 
-	this->m_aio_running.push_back(node->link_node());
-
-	if (::aio_read(&node->m_cb) != 0) {
+	if (::aio_read(&node->m_cb) == 0) {
+		this->m_aio_running.push_back(&node->m_link);
+	} else {
 		ret.set_current();
-
-		node->link_node()->unlink();
 		delete node;
 		node = 0;
-
 		*id = 0;
 	}
 
@@ -179,7 +189,7 @@ err_t conn_t::aio_write(fd_t fd, int64_t offset,
 	assert(id != 0);
 
 	err_t ret;
-	aio_node_t* node = new aio_node_t();
+	aio_node_t* node = new aio_node_t(this);
 
 	*id = (++ m_aio_sequence);
 	node->m_id = *id;
@@ -192,15 +202,13 @@ err_t conn_t::aio_write(fd_t fd, int64_t offset,
 	node->m_cb.aio_sigevent.sigev_signo = SIGIO;
 	node->m_cb.aio_sigevent.sigev_value.sival_ptr = node;
 
-	this->m_aio_running.push_back(node->link_node());
 
-	if (::aio_write(&node->m_cb) != 0) {
+	if (::aio_write(&node->m_cb) == 0) {
+		this->m_aio_running.push_back(&node->m_link);
+	} else {
 		ret.set_current();
-
-		node->link_node()->unlink();
 		delete node;
 		node = 0;
-
 		*id = 0;
 	}
 
@@ -227,7 +235,7 @@ void conn_t::aio_completed(std::vector<aio_t>* completed) {
 		aio_t pub;
 		node->to_pub(&pub);
 		completed->push_back(pub);
-		node->link_node()->unlink();
+		node->m_link.unlink();
 		delete node;
 	});
 

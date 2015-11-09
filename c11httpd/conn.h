@@ -32,18 +32,17 @@ class conn_t : public waitable_t, public conn_session_t, public ctx_setter_t {
 public:
 	class aio_node_t {
 	public:
-		aio_node_t() : m_link(uintptr_t(&this->m_link) - uintptr_t(this)){
-			this->clear();
-		}
-		aio_node_t(const aio_node_t&) = default;
-		aio_node_t& operator=(const aio_node_t&) = default;
-
-		void clear() {
+		aio_node_t(conn_t* conn)
+			: m_link(uintptr_t(&this->m_link) - uintptr_t(this)) {
+			this->m_conn = conn;
 			bzero(&m_cb, sizeof(m_cb));
 			m_id = 0;
 			m_error = 0;
 			m_ok_bytes = 0;
 		}
+
+		aio_node_t(const aio_node_t&) = delete;
+		aio_node_t& operator=(const aio_node_t&) = delete;
 
 		void to_pub(aio_t* pub) const {
 			assert(pub != 0);
@@ -57,12 +56,8 @@ public:
 			pub->m_ok_bytes = m_ok_bytes;
 		}
 
-		// aio_node_t is saved in a doubly link list.
-		link_t<aio_node_t>* link_node() {
-			return &this->m_link;
-		}
-
 		link_t<aio_node_t> m_link;
+		conn_t* m_conn;
 		struct aiocb m_cb;
 		int64_t m_id;
 		err_t m_error;
@@ -142,6 +137,9 @@ public:
 	link_t<conn_t>* link_node() {
 		return &this->m_link;
 	}
+
+	// There is an AIO task completed.
+	void on_aio_completed_i(conn_t::aio_node_t* aio_node);
 
 	// AIO operations.
 	virtual err_t aio_read(fd_t fd, int64_t offset, char* buf, size_t size, int64_t* id);

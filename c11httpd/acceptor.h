@@ -151,9 +151,6 @@ private:
 	// Linux signal received.
 	err_t on_signalled_i(fd_t epoll, fd_t signal_fd, bool* exit);
 
-	// AIO completed.
-	void on_aio_completed_i(conn_t::aio_node_t* aio_node);
-
 	// Return number of terminated worker processes.
 	int on_worker_terminated_i();
 

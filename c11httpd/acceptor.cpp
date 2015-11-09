@@ -561,10 +561,11 @@ err_t acceptor_t::on_signalled_i(fd_t epoll, fd_t signal_fd, bool* exit) {
 	*exit = false;
 
 	// Read signal info.
+	//
+	// Note that we do NOT check return code immediately
+	// because some signal info might have already been gotten
+	// (e.g. AIO signals) that need to handle right away.
 	ret = signal_fd.read_nonblock(&this->m_signal_buf, &new_read_size, &eof);
-	if (!ret) {
-		return ret;
-	}
 
 	ptr = (const struct signalfd_siginfo*) this->m_signal_buf.front();
 	const size_t times = this->m_signal_buf.size() / sizeof(struct signalfd_siginfo);
@@ -575,7 +576,10 @@ err_t acceptor_t::on_signalled_i(fd_t epoll, fd_t signal_fd, bool* exit) {
 		} else if (ptr[i].ssi_signo == SIGCHLD) {
 			dead_workers += this->on_worker_terminated_i();
 		} else if (int(ptr[i].ssi_signo) == conn_t::aio_signal_id) {
-			this->on_aio_completed_i((conn_t::aio_node_t*) ptr[i].ssi_ptr);
+			auto aio_node = (conn_t::aio_node_t*) ptr[i].ssi_ptr;
+			if (aio_node != 0) {
+				aio_node->m_conn->on_aio_completed_i(aio_node);
+			}
 		} else {
 			// Should not run here!
 			assert(false);
@@ -587,17 +591,13 @@ err_t acceptor_t::on_signalled_i(fd_t epoll, fd_t signal_fd, bool* exit) {
 
 	// Restart dead worker processes.
 	if (dead_workers > 0) {
-		ret = this->restart_worker_i(epoll, dead_workers);
-		if (!ret) {
-			return ret;
+		const err_t ret_tmp = this->restart_worker_i(epoll, dead_workers);
+		if (!ret_tmp && ret.ok()) {
+			ret = ret_tmp;
 		}
 	}
 
-	ret.set_ok();
 	return ret;
-}
-
-void acceptor_t::on_aio_completed_i(conn_t::aio_node_t* aio_node) {
 }
 
 int acceptor_t::on_worker_terminated_i() {
