@@ -243,6 +243,34 @@ uint32_t fast_str_t::to_u32(uint32_t default_value) const {
 	return this->to_number(&value) ? value : default_value;
 }
 
+bool fast_str_t::getline(fast_str_t* line, size_t pos, size_t* next_pos) {
+	assert(line != 0);
+
+	size_t end = this->find_first_of('\n', pos);
+	if (end == npos) {
+		line->clear();
+		if (next_pos != 0) {
+			*next_pos = npos;
+		}
+		return false;
+	}
+
+	if (next_pos != 0) {
+		*next_pos = end + 1;
+	}
+
+	char* ptr = (char*) m_str;
+	ptr[end] = 0;
+
+	if (end > pos && ptr[end - 1] == '\r') {
+		ptr[end - 1] = 0;
+		-- end;
+	}
+
+	line->set(ptr + pos, end - pos);
+	return true;
+}
+
 
 } // namespace c11httpd.
 

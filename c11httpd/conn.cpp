@@ -152,29 +152,34 @@ err_t conn_t::aio_read(fd_t fd, int64_t offset,
 	assert(fd.is_open());
 	assert(offset >= 0);
 	assert(buf != 0 || size == 0);
-	assert(id != 0);
 
 	err_t ret;
 	aio_node_t* node = new aio_node_t(this);
 
-	*id = (++ m_aio_sequence);
-	node->m_id = *id;
+	node->m_id = (++ m_aio_sequence);
 	node->m_cb.aio_fildes = fd.get();
 	node->m_cb.aio_offset = offset;
 	node->m_cb.aio_buf = (void*) buf;
 	node->m_cb.aio_nbytes = size;
 
 	node->m_cb.aio_sigevent.sigev_notify = SIGEV_SIGNAL;
-	node->m_cb.aio_sigevent.sigev_signo = SIGIO;
+	node->m_cb.aio_sigevent.sigev_signo = conn_t::aio_signal_id;
 	node->m_cb.aio_sigevent.sigev_value.sival_ptr = node;
 
 	if (::aio_read(&node->m_cb) == 0) {
 		this->m_aio_running.push_back(&node->m_link);
+
+		if (id != 0) {
+			*id = node->m_id;
+		}
 	} else {
 		ret.set_current();
 		delete node;
 		node = 0;
-		*id = 0;
+
+		if (id != 0) {
+			*id = 0;
+		}
 	}
 
 	return ret;
@@ -186,30 +191,34 @@ err_t conn_t::aio_write(fd_t fd, int64_t offset,
 	assert(fd.is_open());
 	assert(offset >= 0);
 	assert(buf != 0 || size == 0);
-	assert(id != 0);
 
 	err_t ret;
 	aio_node_t* node = new aio_node_t(this);
 
-	*id = (++ m_aio_sequence);
-	node->m_id = *id;
+	node->m_id = (++ m_aio_sequence);
 	node->m_cb.aio_fildes = fd.get();
 	node->m_cb.aio_offset = offset;
 	node->m_cb.aio_buf = (void*) buf;
 	node->m_cb.aio_nbytes = size;
 
 	node->m_cb.aio_sigevent.sigev_notify = SIGEV_SIGNAL;
-	node->m_cb.aio_sigevent.sigev_signo = SIGIO;
+	node->m_cb.aio_sigevent.sigev_signo = conn_t::aio_signal_id;
 	node->m_cb.aio_sigevent.sigev_value.sival_ptr = node;
-
 
 	if (::aio_write(&node->m_cb) == 0) {
 		this->m_aio_running.push_back(&node->m_link);
+
+		if (id != 0) {
+			*id = node->m_id;
+		}
 	} else {
 		ret.set_current();
 		delete node;
 		node = 0;
-		*id = 0;
+
+		if (id != 0) {
+			*id = 0;
+		}
 	}
 
 	return ret;

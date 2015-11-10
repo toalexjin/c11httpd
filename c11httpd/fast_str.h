@@ -138,6 +138,15 @@ public:
 	int32_t to_i32(int32_t default_value = 0) const;
 	uint32_t to_u32(uint32_t default_value = 0) const;
 
+	// Get a null-terminated line.
+	//
+	// -# The returned string "line" has an ending null-terminated character.
+	// -# The returned string "line" does not have "\n" and "\r\n" at the end.
+	// -# The internal buffer would be updated because a null-terminated character
+	//    needs to write.
+	// -# If "\n" could not be found, then false would be returned.
+	bool getline(fast_str_t* line, size_t pos = 0, size_t* end_pos = 0);
+
 private:
 	const char* m_str;
 	size_t m_len;

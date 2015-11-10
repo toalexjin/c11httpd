@@ -142,8 +142,8 @@ public:
 	void on_aio_completed_i(conn_t::aio_node_t* aio_node);
 
 	// AIO operations.
-	virtual err_t aio_read(fd_t fd, int64_t offset, char* buf, size_t size, int64_t* id);
-	virtual err_t aio_write(fd_t fd, int64_t offset, const char* buf, size_t size, int64_t* id);
+	virtual err_t aio_read(fd_t fd, int64_t offset, char* buf, size_t size, int64_t* id = 0);
+	virtual err_t aio_write(fd_t fd, int64_t offset, const char* buf, size_t size, int64_t* id = 0);
 	virtual err_t aio_cancel(fd_t fd);
 
 	// Get completed AIO tasks and remove them from internal list.

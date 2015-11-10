@@ -9,6 +9,10 @@
 #include <cstring>
 #include <string>
 #include <signal.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 
 class my_context_t : public c11httpd::ctx_t {
@@ -219,10 +223,21 @@ uint32_t my_event_handler_t::on_aio_completed(
 	return 0;
 }
 
+class file_ctx_t : public c11httpd::ctx_t {
+public:
+	virtual void clear();
+
+	c11httpd::fd_t m_fd;
+};
+
+void file_ctx_t::clear() {
+	m_fd.close();
+}
 
 static void help() {
 	std::cout << "Usage: testtcp echo" << std::endl;
 	std::cout << "       testtcp repeat" << std::endl;
+	std::cout << "       testtcp file" << std::endl;
 	std::cout << std::endl;
 }
 
@@ -248,7 +263,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	// Totally three worker processes.
-	acceptor.config().worker_processes(1);
+	acceptor.config().worker_processes(0);
 
 	if (std::strcmp(argv[1], "echo") == 0) {
 		ret = acceptor.run_tcp([](
@@ -267,6 +282,87 @@ int main(int argc, char* argv[]) {
 	} else if (std::strcmp(argv[1], "repeat") == 0) {
 		my_event_handler_t handler;
 		ret = acceptor.run_tcp(&handler);
+	} else if (std::strcmp(argv[1], "file") == 0) {
+		c11httpd::conn_event_adapter_t adapter;
+
+		// on_received().
+		adapter.lambda_on_received([](
+				c11httpd::ctx_setter_t& ctx_setter,
+				const c11httpd::config_t& cfg,
+				c11httpd::conn_session_t& session,
+				c11httpd::buf_t& recv_buf,
+				c11httpd::buf_t& send_buf) -> uint32_t {
+
+			if (ctx_setter.ctx() == 0) {
+				ctx_setter.ctx(new file_ctx_t());
+			}
+
+			file_ctx_t* ctx = (file_ctx_t*) ctx_setter.ctx();
+			if (ctx->m_fd.is_open()) {
+				return 0;
+			}
+
+			c11httpd::fast_str_t str(recv_buf.front(), recv_buf.size());
+			c11httpd::fast_str_t line;
+			if (!str.getline(&line) || line.empty()) {
+				std::cout << "Could not get a line." << std::endl;
+				return c11httpd::conn_event_t::result_disconnect;
+			}
+
+			std::cout << "Open file " << line << std::endl;
+
+			struct stat info;
+			if (stat(line.c_str(), &info) != 0 || !S_ISREG(info.st_mode)) {
+				std::cout << "It is not a valid file." << std::endl;
+				return c11httpd::conn_event_t::result_disconnect;
+			}
+
+			ctx->m_fd = ::open(line.c_str(), O_RDONLY | O_CLOEXEC | O_NONBLOCK);
+			if (!ctx->m_fd.is_open()) {
+				std::cout << "Could not open file." << std::endl;
+				return c11httpd::conn_event_t::result_disconnect;
+			}
+
+			auto ret = session.aio_read(
+				ctx->m_fd, 0, send_buf.back(info.st_size), info.st_size);
+
+			if (!ret) {
+				std::cout << "aio_read() failed: " << ret << std::endl;
+				return c11httpd::conn_event_t::result_disconnect;
+			}
+
+			std::cout << "aio_read() ok." << std::endl;
+
+			recv_buf.clear();
+			return 0;
+		});
+
+		// on_aio_completed().
+		adapter.lambda_on_aio_completed([](
+				c11httpd::ctx_setter_t& ctx_setter,
+				const c11httpd::config_t& cfg,
+				c11httpd::conn_session_t& session,
+				const std::vector<c11httpd::aio_t>& completed,
+				c11httpd::buf_t& send_buf) -> uint32_t {
+
+			file_ctx_t* ctx = (file_ctx_t*) ctx_setter.ctx();
+			ctx->clear();
+
+			if (completed.empty()) {
+				assert(false);
+				return c11httpd::conn_event_t::result_disconnect;
+			}
+
+			if (completed[0].m_error.failed()) {
+				std::cout << "aio_completed: " << completed[0].m_error << std::endl;
+				return c11httpd::conn_event_t::result_disconnect;
+			}
+
+			send_buf.size(send_buf.size() + completed[0].m_ok_bytes);
+			return 0;
+		});
+
+		ret = acceptor.run_tcp(&adapter);
 	} else {
 		help();
 		return 1;
