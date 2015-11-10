@@ -149,13 +149,18 @@ private:
 	err_t loop_send_i(conn_event_t* handler, conn_t* conn);
 
 	// Linux signal received.
-	err_t on_signalled_i(fd_t epoll, fd_t signal_fd, bool* exit);
+	err_t on_signalled_i(fd_t epoll, fd_t signal_fd, bool* exit, std::set<conn_t*>* aio_conns);
 
 	// Return number of terminated worker processes.
 	int on_worker_terminated_i();
 
 	// Restart terminated worker processes.
 	err_t restart_worker_i(fd_t epoll, int dead_workers);
+
+	// Garbage-collect a connection.
+	void gc_conn_i(conn_event_t* handler,
+		fd_t epoll, conn_t* conn, bool new_conn, int* used_count,
+		link_t<conn_t>* free_list, int* free_count);
 
 private:
 	std::vector<std::unique_ptr<listen_t>> m_listens;

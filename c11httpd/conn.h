@@ -147,7 +147,7 @@ public:
 	virtual err_t aio_cancel(fd_t fd);
 
 	// Get completed AIO tasks and remove them from internal list.
-	virtual void aio_completed(std::vector<aio_t>* completed);
+	void popup_aio_completed(std::vector<aio_t>* completed);
 
 private:
 	// Remove default constructor, copy constructor and operator=().

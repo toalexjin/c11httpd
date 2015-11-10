@@ -131,6 +131,13 @@ public:
 		const c11httpd::config_t& cfg,
 		c11httpd::conn_session_t& session,
 		c11httpd::buf_t& send_buf);
+
+	virtual uint32_t on_aio_completed(
+		c11httpd::ctx_setter_t& ctx_setter,
+		const c11httpd::config_t& cfg,
+		c11httpd::conn_session_t& session,
+		const std::vector<c11httpd::aio_t>& completed,
+		c11httpd::buf_t& send_buf);
 };
 
 
@@ -201,6 +208,17 @@ uint32_t my_event_handler_t::get_more_data(
 
 	return ctx->more() ? c11httpd::conn_event_t::result_more_data : 0;
 }
+
+uint32_t my_event_handler_t::on_aio_completed(
+	c11httpd::ctx_setter_t& ctx_setter,
+	const c11httpd::config_t& cfg,
+	c11httpd::conn_session_t& session,
+	const std::vector<c11httpd::aio_t>& completed,
+	c11httpd::buf_t& send_buf) {
+
+	return 0;
+}
+
 
 static void help() {
 	std::cout << "Usage: testtcp echo" << std::endl;

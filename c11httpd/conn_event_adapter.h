@@ -10,6 +10,7 @@
 #include "c11httpd/config.h"
 #include "c11httpd/conn_event.h"
 #include <functional>
+#include <vector>
 
 
 namespace c11httpd {
@@ -24,6 +25,8 @@ public:
 	typedef std::function<void(ctx_setter_t&, const config_t&, conn_session_t&)> on_disconnected_t;
 	typedef std::function<uint32_t(ctx_setter_t&, const config_t&, conn_session_t&, buf_t&, buf_t&)> on_received_t;
 	typedef std::function<uint32_t(ctx_setter_t&, const config_t&, conn_session_t&, buf_t&)> get_more_data_t;
+	typedef std::function<uint32_t(ctx_setter_t&, const config_t&, conn_session_t&,
+			const std::vector<aio_t>&, buf_t&)> on_aio_completed_t;
 
 public:
 	conn_event_adapter_t() = default;
@@ -62,6 +65,14 @@ public:
 		this->m_get_more_data = handler;
 	}
 
+	const on_aio_completed_t& lambda_on_aio_completed() const {
+		return this->m_on_aio_completed;
+	}
+
+	void lambda_on_aio_completed(const on_aio_completed_t& handler) {
+		this->m_on_aio_completed = handler;
+	}
+
 	// Event callback functions.
 	virtual uint32_t on_connected(
 		ctx_setter_t& ctx_setter, const config_t& cfg,
@@ -79,11 +90,18 @@ public:
 		ctx_setter_t& ctx_setter, const config_t& cfg,
 		conn_session_t& session, buf_t& send_buf);
 
+	virtual uint32_t on_aio_completed(
+		ctx_setter_t& ctx_setter, const config_t& cfg,
+		conn_session_t& session,
+		const std::vector<aio_t>& completed,
+		buf_t& send_buf);
+
 private:
 	on_connected_t m_on_connected;
 	on_disconnected_t m_on_disconnected;
 	on_received_t m_on_received;
 	get_more_data_t m_get_more_data;
+	on_aio_completed_t m_on_aio_completed;
 };
 
 

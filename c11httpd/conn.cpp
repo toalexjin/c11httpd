@@ -225,7 +225,7 @@ err_t conn_t::aio_cancel(fd_t fd) {
 	return ret;
 }
 
-void conn_t::aio_completed(std::vector<aio_t>* completed) {
+void conn_t::popup_aio_completed(std::vector<aio_t>* completed) {
 	assert(completed != 0);
 
 	// Clear content.

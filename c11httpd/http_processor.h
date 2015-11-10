@@ -48,6 +48,12 @@ public:
 		conn_session_t& session,
 		buf_t& send_buf);
 
+	virtual uint32_t on_aio_completed(
+		ctx_setter_t& ctx_setter, const config_t& cfg,
+		conn_session_t& session,
+		const std::vector<aio_t>& completed,
+		buf_t& send_buf);
+
 private:
 	// Process a HTTP request.
 	//

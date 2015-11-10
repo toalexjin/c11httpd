@@ -98,5 +98,15 @@ uint32_t http_processor_t::get_more_data(
 	return 0;
 }
 
+uint32_t http_processor_t::on_aio_completed(
+	ctx_setter_t& ctx_setter, const config_t& cfg,
+	conn_session_t& session,
+	const std::vector<aio_t>& completed,
+	buf_t& send_buf) {
+
+	return 0;
+}
+
+
 
 } // namespace c11httpd.

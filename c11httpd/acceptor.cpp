@@ -181,6 +181,8 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 	std::string new_ip;
 	uint16_t new_port;
 	bool new_ipv6;
+	std::set<conn_t*> aio_conns; // Which connection has completed AIO tasks.
+	std::vector<aio_t> aio_completed; // Completed AIO tasks.
 
 	assert(handler != 0);
 
@@ -257,11 +259,41 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 			if (waitable->wait_type() == waitable_t::type_signal) {
 				bool exit;
 
-				ret = this->on_signalled_i(epoll, signal_fd, &exit);
+				ret = this->on_signalled_i(epoll, signal_fd, &exit, &aio_conns);
 				if (!ret || exit) {
 					goto clean;
 				}
 
+				for (conn_t* conn : aio_conns) {
+					bool gc = false;
+
+					// Popup AIO completed tasks.
+					conn->popup_aio_completed(&aio_completed);
+					if (aio_completed.empty()) {
+						continue;
+					}
+
+					// Invoke callback function to handle completed aio tasks.
+					conn->last_event_result(handler->on_aio_completed(
+						*conn, this->m_config, *conn, aio_completed, conn->send_buf()));
+
+					if (conn->pending_send_size() > 0) {
+						this->epoll_set_i(epoll, conn->sock(), conn, EPOLL_CTL_MOD, EPOLLOUT | EPOLLET);
+					} else if (conn->last_event_result() & conn_event_t::result_disconnect) {
+						gc = true;
+						break;
+					}
+
+					// An error happened or client side closed connection,
+					// we need to garbage collect the conn.
+					if (gc) {
+						this->gc_conn_i(handler, epoll,
+							conn, false, &used_count, &free_list, &free_count);
+					}
+				}
+
+				// Remove aio-completed conn pointers.
+				aio_conns.clear();
 			} else if (waitable->wait_type() == waitable_t::type_listen) {
 				auto listen = (listen_t*) waitable;
 
@@ -333,17 +365,13 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 					} while (0);
 
 					if (gc) {
-						// Trigger "on_disconnected" event.
-						handler->on_disconnected(*conn, this->m_config, *conn);
-
-						this->add_free_conn_i(&free_list, &free_count, conn);
-						conn = 0;
-						continue;
+						this->gc_conn_i(handler, epoll,
+							conn, true, &used_count, &free_list, &free_count);
+					} else {
+						// Add it to used list.
+						used_list.push_back(conn->link_node());
+						++ used_count;
 					}
-
-					// Add it to used list.
-					used_list.push_back(conn->link_node());
-					++ used_count;
 				}
 			} else if (waitable->wait_type() == waitable_t::type_conn) {
 				auto conn = (conn_t*) waitable;
@@ -404,18 +432,8 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 				// An error happened or client side closed connection,
 				// we need to garbage collect the conn.
 				if (gc) {
-					if (this->epoll_del_i(epoll, conn->sock()).ok()) {
-						// Trigger "on_disconnected" event.
-						handler->on_disconnected(*conn, this->m_config, *conn);
-
-						// Remove it from used list.
-						conn->link_node()->unlink();
-						-- used_count;
-
-						// Add it to free list.
-						this->add_free_conn_i(&free_list, &free_count, conn);
-						conn = 0;
-					}
+					this->gc_conn_i(handler, epoll,
+						conn, false, &used_count, &free_list, &free_count);
 				}
 			} else {
 				// Should not run here!
@@ -548,7 +566,9 @@ err_t acceptor_t::loop_send_i(conn_event_t* handler, conn_t* conn) {
 	return ret;
 }
 
-err_t acceptor_t::on_signalled_i(fd_t epoll, fd_t signal_fd, bool* exit) {
+err_t acceptor_t::on_signalled_i(
+	fd_t epoll, fd_t signal_fd, bool* exit, std::set<conn_t*>* aio_conns) {
+
 	err_t ret;
 	size_t new_read_size;
 	bool eof;
@@ -556,9 +576,11 @@ err_t acceptor_t::on_signalled_i(fd_t epoll, fd_t signal_fd, bool* exit) {
 	const struct signalfd_siginfo* ptr;
 
 	assert(exit != 0);
+	assert(aio_conns != 0);
 
 	// Clear content.
 	*exit = false;
+	aio_conns->clear();
 
 	// Read signal info.
 	//
@@ -579,6 +601,7 @@ err_t acceptor_t::on_signalled_i(fd_t epoll, fd_t signal_fd, bool* exit) {
 			auto aio_node = (conn_t::aio_node_t*) ptr[i].ssi_ptr;
 			if (aio_node != 0) {
 				aio_node->m_conn->on_aio_completed_i(aio_node);
+				aio_conns->insert(aio_node->m_conn);
 			}
 		} else {
 			// Should not run here!
@@ -643,6 +666,25 @@ err_t acceptor_t::restart_worker_i(fd_t epoll, int dead_workers) {
 	}
 
 	return ret;
+}
+
+void acceptor_t::gc_conn_i(conn_event_t* handler,
+	fd_t epoll, conn_t* conn, bool new_conn, int* used_count,
+	link_t<conn_t>* free_list, int* free_count) {
+
+	if (new_conn || this->epoll_del_i(epoll, conn->sock()).ok()) {
+		// Trigger "on_disconnected" event.
+		handler->on_disconnected(*conn, this->m_config, *conn);
+
+		// Remove it from used list.
+		if (!new_conn) {
+			conn->link_node()->unlink();
+			-- (*used_count);
+		}
+
+		// Add it to free list.
+		this->add_free_conn_i(free_list, free_count, conn);
+	}
 }
 
 
