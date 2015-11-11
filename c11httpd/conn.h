@@ -69,7 +69,10 @@ public:
 		: waitable_t(waitable_t::type_conn),
 		m_ip(ip), m_sd(sd), m_port(port), m_ipv6(ipv6),
 		m_link(uintptr_t(&this->m_link) - uintptr_t(this)),
-		m_aio_sequence(0) {
+		m_aio_running_count(0),
+		m_aio_completed_count(0),
+		m_aio_sequence(0),
+		m_aio_wait_state(false) {
 
 		assert(this == this->m_link.get());
 		this->m_send_offset = 0;
@@ -146,8 +149,26 @@ public:
 	virtual err_t aio_write(fd_t fd, int64_t offset, const char* buf, size_t size, int64_t* id = 0);
 	virtual err_t aio_cancel(fd_t fd);
 
+	// Get number of running AIO tasks.
+	int aio_running_count() const {
+		return this->m_aio_running_count;
+	}
+
+	// Get number of completed AIO tasks.
+	int aio_completed_count() const {
+		return this->m_aio_completed_count;
+	}
+
 	// Get completed AIO tasks and remove them from internal list.
 	void popup_aio_completed(std::vector<aio_t>* completed);
+
+	bool aio_wait_state() const {
+		return this->m_aio_wait_state;
+	}
+
+	void aio_wait_state(bool flag) {
+		this->m_aio_wait_state = flag;
+	}
 
 private:
 	// Remove default constructor, copy constructor and operator=().
@@ -171,7 +192,10 @@ private:
 	uint32_t m_last_event_result;
 	link_t<aio_node_t> m_aio_running;
 	link_t<aio_node_t> m_aio_completed;
+	int m_aio_running_count;
+	int m_aio_completed_count;
 	int64_t m_aio_sequence;
+	bool m_aio_wait_state;
 };
 
 

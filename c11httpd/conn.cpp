@@ -33,6 +33,13 @@ void conn_t::close() {
 	this->m_send_buf.clear();
 	this->m_send_offset = 0;
 	this->m_last_event_result = 0;
+
+	// Remove completed AIO tasks.
+	//
+	// Note that we do NOT remove running AIO tasks
+	// because those objects will be used by on_signalled_i().
+	this->m_aio_completed.clear();
+	this->m_aio_completed_count = 0;
 }
 
 const std::string& conn_t::ip() const {
@@ -143,7 +150,14 @@ void conn_t::on_aio_completed_i(conn_t::aio_node_t* aio_node) {
 
 	// Move the node from running list to completed list.
 	aio_node->m_link.unlink();
-	this->m_aio_completed.push_back(&aio_node->m_link);
+	this->m_aio_running_count--;
+
+	if (this->m_aio_wait_state) {
+		delete aio_node;
+	} else {
+		this->m_aio_completed.push_back(&aio_node->m_link);
+		this->m_aio_completed_count++;
+	}
 }
 
 err_t conn_t::aio_read(fd_t fd, int64_t offset,
@@ -168,6 +182,7 @@ err_t conn_t::aio_read(fd_t fd, int64_t offset,
 
 	if (::aio_read(&node->m_cb) == 0) {
 		this->m_aio_running.push_back(&node->m_link);
+		this->m_aio_running_count++;
 
 		if (id != 0) {
 			*id = node->m_id;
@@ -207,6 +222,7 @@ err_t conn_t::aio_write(fd_t fd, int64_t offset,
 
 	if (::aio_write(&node->m_cb) == 0) {
 		this->m_aio_running.push_back(&node->m_link);
+		this->m_aio_running_count++;
 
 		if (id != 0) {
 			*id = node->m_id;
@@ -248,6 +264,7 @@ void conn_t::popup_aio_completed(std::vector<aio_t>* completed) {
 		delete node;
 	});
 
+	this->m_aio_completed_count = 0;
 	assert(this->m_aio_completed.empty());
 }
 

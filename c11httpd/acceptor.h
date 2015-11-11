@@ -39,6 +39,26 @@ namespace c11httpd {
 // When the connection was disconnected, acceptor_t would put the
 // conn_t object to a free list (for re-use) or destroy it.
 class acceptor_t {
+private:
+	// Service running information.
+	struct running_t {
+		running_t(conn_event_t* handler)
+			: m_waitable_signal(waitable_t::type_signal),
+			  m_handler(handler) {
+		}
+
+		fd_t m_epoll;
+		fd_t m_signal;
+		link_t<conn_t> m_used_list;
+		link_t<conn_t> m_aio_wait_list;
+		link_t<conn_t> m_free_list;
+		int m_used_count = 0;
+		int m_aio_wait_count = 0;
+		int m_free_count = 0;
+		const waitable_t m_waitable_signal;
+		conn_event_t* const m_handler;
+	};
+
 public:
 	// "0.0.0.0"
 	static const std::string ipv4_any;
@@ -157,9 +177,10 @@ private:
 	err_t restart_worker_i(fd_t epoll, int dead_workers);
 
 	// Garbage-collect a connection.
-	void gc_conn_i(conn_event_t* handler,
-		fd_t epoll, conn_t* conn, bool new_conn, int* used_count,
-		link_t<conn_t>* free_list, int* free_count);
+	void gc_conn_i(running_t* running, conn_t* conn, bool new_conn);
+
+	// Map Linux signals to file descriptor.
+	err_t signalfd_i(fd_t* fd);
 
 private:
 	std::vector<std::unique_ptr<listen_t>> m_listens;

@@ -304,9 +304,16 @@ int main(int argc, char* argv[]) {
 
 			c11httpd::fast_str_t str(recv_buf.front(), recv_buf.size());
 			c11httpd::fast_str_t line;
-			if (!str.getline(&line) || line.empty()) {
+			size_t next_pos;
+
+			if (!str.getline(&line, 0, &next_pos)) {
 				std::cout << "Could not get a line." << std::endl;
-				return c11httpd::conn_event_t::result_disconnect;
+				return 0;
+			}
+
+			if (line.empty()) {
+				recv_buf.erase_front(next_pos);
+				return 0;
 			}
 
 			std::cout << "Open file " << line << std::endl;
@@ -314,13 +321,15 @@ int main(int argc, char* argv[]) {
 			struct stat info;
 			if (stat(line.c_str(), &info) != 0 || !S_ISREG(info.st_mode)) {
 				std::cout << "It is not a valid file." << std::endl;
-				return c11httpd::conn_event_t::result_disconnect;
+				recv_buf.erase_front(next_pos);
+				return 0;
 			}
 
 			ctx->m_fd = ::open(line.c_str(), O_RDONLY | O_CLOEXEC | O_NONBLOCK);
 			if (!ctx->m_fd.is_open()) {
 				std::cout << "Could not open file." << std::endl;
-				return c11httpd::conn_event_t::result_disconnect;
+				recv_buf.erase_front(next_pos);
+				return 0;
 			}
 
 			auto ret = session.aio_read(
@@ -328,12 +337,14 @@ int main(int argc, char* argv[]) {
 
 			if (!ret) {
 				std::cout << "aio_read() failed: " << ret << std::endl;
-				return c11httpd::conn_event_t::result_disconnect;
+				ctx->m_fd.close();
+				recv_buf.erase_front(next_pos);
+				return 0;
 			}
 
 			std::cout << "aio_read() ok." << std::endl;
 
-			recv_buf.clear();
+			recv_buf.erase_front(next_pos);
 			return 0;
 		});
 

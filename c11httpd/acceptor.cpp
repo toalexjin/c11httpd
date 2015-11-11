@@ -166,22 +166,15 @@ std::vector<std::pair<std::string, uint16_t>> acceptor_t::binds() const {
 
 err_t acceptor_t::run_tcp(conn_event_t* handler) {
 	err_t ret;
-	const waitable_t waitable_signal(waitable_t::type_signal);
-	link_t<conn_t> used_list;
-	link_t<conn_t> free_list;
-	int used_count = 0;
-	int free_count = 0;
-	fd_t epoll;
-	fd_t signal_fd;
+	running_t running(handler);
 	const int events_size = this->m_config.max_epoll_events();
 	struct epoll_event* events = 0;
-	sigset_t signal_mask;
+	std::set<conn_t*> aio_conns; // Which connection has completed AIO tasks.
+	std::vector<aio_t> aio_completed; // Completed AIO tasks.
 	socket_t new_sd;
 	std::string new_ip;
 	uint16_t new_port;
 	bool new_ipv6;
-	std::set<conn_t*> aio_conns; // Which connection has completed AIO tasks.
-	std::vector<aio_t> aio_completed; // Completed AIO tasks.
 
 	assert(handler != 0);
 
@@ -194,35 +187,21 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 	}
 
 	// Create epoll handle.
-	epoll = epoll_create1(EPOLL_CLOEXEC);
-	if (!epoll.is_open()) {
+	running.m_epoll = epoll_create1(EPOLL_CLOEXEC);
+	if (!running.m_epoll.is_open()) {
 		ret.set_current();
 		goto clean;
 	}
 
-	sigemptyset(&signal_mask);
-	sigaddset(&signal_mask, SIGTERM);
-	sigaddset(&signal_mask, SIGINT);
-	sigaddset(&signal_mask, SIGCHLD);
-	sigaddset(&signal_mask, conn_t::aio_signal_id);
-
-	/* Block the signals that we handle using signalfd(), so they don't
-	 * cause signal handlers or default signal actions to execute. */
-	if (sigprocmask(SIG_BLOCK, &signal_mask, 0) == -1) {
-		ret.set_current();
-		goto clean;
-	}
-
-	// Hook Linux signal events.
-	signal_fd = signalfd(-1, &signal_mask, SFD_NONBLOCK | SFD_CLOEXEC);
-	if (!signal_fd.is_open()) {
-		ret.set_current();
+	// Hook Linux signals.
+	ret = this->signalfd_i(&running.m_signal);
+	if (!ret) {
 		goto clean;
 	}
 
 	// Add signal fd to epoll.
-	ret = this->epoll_set_i(epoll, signal_fd.get(),
-		&waitable_signal, EPOLL_CTL_ADD, EPOLLIN | EPOLLET);
+	ret = this->epoll_set_i(running.m_epoll, running.m_signal.get(),
+		&running.m_waitable_signal, EPOLL_CTL_ADD, EPOLLIN | EPOLLET);
 	if (!ret) {
 		goto clean;
 	}
@@ -230,7 +209,7 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 	// Add listening sockets.
 	if (this->m_config.worker_processes() == 0 || !this->m_worker_pool.main_process()) {
 		for (auto it = this->m_listens.begin(); it != this->m_listens.end(); ++it) {
-			ret = this->epoll_set_i(epoll, (*it).get()->sock(), (*it).get(), EPOLL_CTL_ADD, EPOLLIN | EPOLLET);
+			ret = this->epoll_set_i(running.m_epoll, (*it).get()->sock(), (*it).get(), EPOLL_CTL_ADD, EPOLLIN | EPOLLET);
 			if (!ret) {
 				goto clean;
 			}
@@ -239,7 +218,7 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 
 	events = new struct epoll_event[events_size];
 	while (true) {
-		const int wait_result = epoll_wait(epoll.get(), events, events_size, -1);
+		const int wait_result = epoll_wait(running.m_epoll.get(), events, events_size, -1);
 
 		if (wait_result == -1) {
 			const auto e = err_t::current();
@@ -258,7 +237,7 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 			if (waitable->wait_type() == waitable_t::type_signal) {
 				bool exit;
 
-				ret = this->on_signalled_i(epoll, signal_fd, &exit, &aio_conns);
+				ret = this->on_signalled_i(running.m_epoll, running.m_signal, &exit, &aio_conns);
 				if (!ret || exit) {
 					goto clean;
 				}
@@ -277,7 +256,7 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 						*conn, this->m_config, *conn, aio_completed, conn->send_buf()));
 
 					if (conn->pending_send_size() > 0) {
-						this->epoll_set_i(epoll, conn->sock(), conn, EPOLL_CTL_MOD, EPOLLOUT | EPOLLET);
+						this->epoll_set_i(running.m_epoll, conn->sock(), conn, EPOLL_CTL_MOD, EPOLLOUT | EPOLLET);
 					} else if (conn->last_event_result() & conn_event_t::result_disconnect) {
 						gc = true;
 						break;
@@ -286,8 +265,7 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 					// An error happened or client side closed connection,
 					// we need to garbage collect the conn.
 					if (gc) {
-						this->gc_conn_i(handler, epoll,
-							conn, false, &used_count, &free_list, &free_count);
+						this->gc_conn_i(&running, conn, false);
 					}
 				}
 
@@ -317,10 +295,10 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 						continue;
 					}
 
-					if (free_count > 0) {
+					if (running.m_free_count > 0) {
 						// Pop an free conn object from free list.
-						--free_count;
-						conn = free_list.pop_front()->get();
+						running.m_free_count--;
+						conn = running.m_free_list.pop_front()->get();
 						conn->sock(new_sd);
 						conn->ip(new_ip);
 						conn->port(new_port);
@@ -353,7 +331,7 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 						}
 
 						// Add it to epoll list.
-						ret = this->epoll_set_i(epoll, conn->sock(), conn, EPOLL_CTL_ADD,
+						ret = this->epoll_set_i(running.m_epoll, conn->sock(), conn, EPOLL_CTL_ADD,
 								conn->pending_send_size() == 0 ?
 								(EPOLLIN | EPOLLET) : (EPOLLOUT | EPOLLET));
 
@@ -364,12 +342,11 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 					} while (0);
 
 					if (gc) {
-						this->gc_conn_i(handler, epoll,
-							conn, true, &used_count, &free_list, &free_count);
+						this->gc_conn_i(&running, conn, true);
 					} else {
 						// Add it to used list.
-						used_list.push_back(conn->link_node());
-						++ used_count;
+						running.m_used_list.push_back(conn->link_node());
+						running.m_used_count ++;
 					}
 				}
 			} else if (waitable->wait_type() == waitable_t::type_conn) {
@@ -402,7 +379,7 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 						}
 
 						if (conn->pending_send_size() > 0) {
-							this->epoll_set_i(epoll, conn->sock(), conn, EPOLL_CTL_MOD, EPOLLOUT | EPOLLET);
+							this->epoll_set_i(running.m_epoll, conn->sock(), conn, EPOLL_CTL_MOD, EPOLLOUT | EPOLLET);
 						} else if (conn->last_event_result() & conn_event_t::result_disconnect) {
 							gc = true;
 							break;
@@ -423,7 +400,7 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 							}
 
 							// All data has been sent, switch to receive data mode.
-							this->epoll_set_i(epoll, conn->sock(), conn, EPOLL_CTL_MOD, EPOLLIN | EPOLLET);
+							this->epoll_set_i(running.m_epoll, conn->sock(), conn, EPOLL_CTL_MOD, EPOLLIN | EPOLLET);
 						}
 					}
 				} while (0);
@@ -431,8 +408,7 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 				// An error happened or client side closed connection,
 				// we need to garbage collect the conn.
 				if (gc) {
-					this->gc_conn_i(handler, epoll,
-						conn, false, &used_count, &free_list, &free_count);
+					this->gc_conn_i(&running, conn, false);
 				}
 			} else {
 				// Should not run here!
@@ -448,21 +424,22 @@ clean:
 	// Trigger "on_disconnected" event for each existing connection.
 	do {
 		const config_t* cfg = &this->m_config;
-		used_list.for_each([handler, cfg](conn_t* c) {
+		running.m_used_list.for_each([handler, cfg](conn_t* c) {
 			handler->on_disconnected(*c, *cfg, *c);
 			delete c;
 		});
 	} while (0);
 
-	free_list.clear();
+	running.m_aio_wait_list.clear();
+	running.m_free_list.clear();
 
 	if (events != 0) {
 		delete[] events;
 		events = 0;
 	}
 
-	epoll.close();
-	signal_fd.close();
+	running.m_epoll.close();
+	running.m_signal.close();
 
 	// Kill all worker process.
 	this->m_worker_pool.kill_all();
@@ -525,8 +502,6 @@ err_t acceptor_t::epoll_del_i(fd_t epoll, socket_t sock) {
 
 void acceptor_t::add_free_conn_i(link_t<conn_t>* free_list, int* free_count, conn_t* conn) {
 	assert(!conn->link_node()->linked());
-
-	conn->close();
 
 	if (*free_count < this->m_config.max_free_connection()) {
 		free_list->push_front(conn->link_node());
@@ -667,25 +642,91 @@ err_t acceptor_t::restart_worker_i(fd_t epoll, int dead_workers) {
 	return ret;
 }
 
-void acceptor_t::gc_conn_i(conn_event_t* handler,
-	fd_t epoll, conn_t* conn, bool new_conn, int* used_count,
-	link_t<conn_t>* free_list, int* free_count) {
+void acceptor_t::gc_conn_i(running_t* running, conn_t* conn, bool new_conn) {
+	assert(running != 0);
+	assert(conn != 0);
 
-	if (new_conn || this->epoll_del_i(epoll, conn->sock()).ok()) {
+	if (new_conn) {
 		// Trigger "on_disconnected" event.
-		handler->on_disconnected(*conn, this->m_config, *conn);
+		running->m_handler->on_disconnected(*conn, this->m_config, *conn);
+
+		// Reset connection object.
+		conn->close();
+
+		// Put it to free list.
+		this->add_free_conn_i(&running->m_free_list, &running->m_free_count, conn);
+	} else if (conn->aio_wait_state()) {
+		if (conn->aio_running_count() == 0) {
+			// If there is no any running AIO tasks,
+			// then remove it from aio_wait_list.
+			conn->link_node()->unlink();
+			running->m_aio_wait_count--;
+			conn->aio_wait_state(false);
+
+			// Reset connection object.
+			conn->close();
+
+			// Put it to free list.
+			this->add_free_conn_i(&running->m_free_list, &running->m_free_count, conn);
+		}
+	} else if (conn->aio_running_count() > 0) {
+		// Trigger "on_disconnected" event.
+		running->m_handler->on_disconnected(*conn, this->m_config, *conn);
 
 		// Remove it from used list.
-		if (!new_conn) {
-			conn->link_node()->unlink();
-			-- (*used_count);
-		}
+		conn->link_node()->unlink();
+		running->m_used_count--;
 
-		// Add it to free list.
-		this->add_free_conn_i(free_list, free_count, conn);
+		// Reset connection object.
+		conn->close();
+
+		// As there are pending AIO tasks, put it to aio_wait_list.
+		conn->aio_wait_state(true);
+		running->m_aio_wait_list.push_back(conn->link_node());
+		running->m_aio_wait_count++;
+	} else {
+		// Trigger "on_disconnected" event.
+		running->m_handler->on_disconnected(*conn, this->m_config, *conn);
+
+		// Remove it from used list.
+		conn->link_node()->unlink();
+		running->m_used_count--;
+
+		// Reset connection object.
+		conn->close();
+
+		// Put it to free list.
+		this->add_free_conn_i(&running->m_free_list, &running->m_free_count, conn);
 	}
 }
 
+err_t acceptor_t::signalfd_i(fd_t* fd) {
+	sigset_t signal_mask;
+
+	assert(fd != 0);
+
+	*fd = -1;
+
+	sigemptyset(&signal_mask);
+	sigaddset(&signal_mask, SIGTERM);
+	sigaddset(&signal_mask, SIGINT);
+	sigaddset(&signal_mask, SIGCHLD);
+	sigaddset(&signal_mask, conn_t::aio_signal_id);
+
+	/* Block the signals that we handle using signalfd(), so they don't
+	 * cause signal handlers or default signal actions to execute. */
+	if (sigprocmask(SIG_BLOCK, &signal_mask, 0) == -1) {
+		return err_t::current();
+	}
+
+	// Hook Linux signal events.
+	*fd = signalfd(-1, &signal_mask, SFD_NONBLOCK | SFD_CLOEXEC);
+	if (!fd->is_open()) {
+		return err_t::current();
+	}
+
+	return err_t();
+}
 
 } // namespace c11httpd.
 
