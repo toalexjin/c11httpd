@@ -9,7 +9,6 @@
 #include "c11httpd/fd.h"
 #include "c11httpd/http_processor.h"
 #include "c11httpd/link.h"
-#include "c11httpd/signal_manager.h"
 #include "c11httpd/socket.h"
 #include "c11httpd/waitable.h"
 #include <cstring>
@@ -35,7 +34,7 @@ const std::string acceptor_t::ipv6_loopback("::1");
 acceptor_t::acceptor_t(const config_t& cfg)
 	: m_config(cfg) {
 	// Ignore SIGPIPE.
-	signal_manager_t::instance()->ignore(SIGPIPE);
+	signal(SIGPIPE, SIG_IGN);
 }
 
 acceptor_t::~acceptor_t() {

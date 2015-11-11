@@ -18,7 +18,6 @@
 #include "c11httpd/waitable.h"
 #include "c11httpd/worker_pool.h"
 #include "c11httpd/rest_ctrl.h"
-#include "c11httpd/signal_event.h"
 #include "c11httpd/socket.h"
 #include <functional>
 #include <initializer_list>
