@@ -15,8 +15,11 @@ namespace c11httpd {
 // HTTP Status.
 class http_status_t {
 public:
-	static const int ok = 200;
-	static const int not_found = 404;
+	enum {
+		ok = 200,
+		parial_content = 206,
+		not_found = 404
+	};
 };
 
 

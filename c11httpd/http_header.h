@@ -60,16 +60,52 @@ public:
 	};
 
 public:
+	static const fast_str_t Accept;
+	static const fast_str_t Accept_Charset;
+	static const fast_str_t Accept_Encoding;
+	static const fast_str_t Accept_Language;
+
+	// Accept-Ranges: bytes
+	static const fast_str_t Accept_Ranges;
+	static const fast_str_t App_Json_UTF8;
+	static const fast_str_t App_Octet_Stream;
+	static const fast_str_t App_RPM;
+	static const fast_str_t App_XML_UTF8;
+	static const fast_str_t App_ZIP;
+	static const fast_str_t Attachment;
+	static const fast_str_t Authorization;
+	static const fast_str_t Bytes;
+	static const fast_str_t Compress;
 	static const fast_str_t Connection;
+	static const fast_str_t Content_Encoding;
+
+	// Content-Disposition: attachment; filename="file-name.dat"
+	static const fast_str_t Content_Disposition;
+	static const fast_str_t Content_Language;
 	static const fast_str_t Content_Length;
+	static const fast_str_t Content_Location;
+	static const fast_str_t Content_MD5;
+	static const fast_str_t Content_Range;
 	static const fast_str_t Content_Type;
 	static const fast_str_t Date;
+	static const fast_str_t Deflate;
+	static const fast_str_t Filename;
+	static const fast_str_t GZIP;
 	static const fast_str_t Host;
 	static const fast_str_t HTTP_VERSION_1_1;
-	static const fast_str_t JSON_UTF8;
+	static const fast_str_t Identify;
+	static const fast_str_t Image_GIF;
+	static const fast_str_t Image_JPEG;
+	static const fast_str_t Image_PNG;
 	static const fast_str_t Keep_Alive;
+	static const fast_str_t Last_Modified;
+	static const fast_str_t Location;
+	static const fast_str_t Range;
 	static const fast_str_t Server;
-	static const fast_str_t XML_UTF8;
+	static const fast_str_t Text_CSS_UTF8;
+	static const fast_str_t Text_HTML_UTF8;
+	static const fast_str_t Text_JavaScript;
+	static const fast_str_t Text_Plain_UTF8;
 
 public:
 	http_header_t() = default;

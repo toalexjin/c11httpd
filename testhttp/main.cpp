@@ -32,7 +32,7 @@ public:
 my_ctrl_t::my_ctrl_t() {
 	this->add("/*", c11httpd::http_method_t::any, this,
 		&my_ctrl_t::handle_root, "",
-		c11httpd::http_header_t::JSON_UTF8.to_str());
+		c11httpd::http_header_t::App_Json_UTF8.to_str());
 }
 
 c11httpd::rest_result_t my_ctrl_t::handle_root(

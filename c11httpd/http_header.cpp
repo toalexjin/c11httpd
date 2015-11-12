@@ -11,16 +11,51 @@
 namespace c11httpd {
 
 
+const fast_str_t http_header_t::Accept = "Accept";
+const fast_str_t http_header_t::Accept_Charset = "Accept-Charset";
+const fast_str_t http_header_t::Accept_Encoding = "Accept-Encoding";
+const fast_str_t http_header_t::Accept_Language = "Accept-Language";
+
+const fast_str_t http_header_t::Accept_Ranges = "Accept-Ranges";
+const fast_str_t http_header_t::App_Json_UTF8 = "application/json; charset=UTF-8";
+const fast_str_t http_header_t::App_Octet_Stream = "application/octet-stream";
+const fast_str_t http_header_t::App_RPM = "application/x-redhat-package-manager";
+const fast_str_t http_header_t::App_XML_UTF8 = "application/xml; charset=UTF-8";
+const fast_str_t http_header_t::App_ZIP = "application/zip";
+const fast_str_t http_header_t::Attachment = "attachment";
+const fast_str_t http_header_t::Authorization = "Authorization";
+const fast_str_t http_header_t::Bytes = "bytes";
+const fast_str_t http_header_t::Compress = "compress";
 const fast_str_t http_header_t::Connection = "Connection";
+
+const fast_str_t http_header_t::Content_Language = "Content-Language";
+const fast_str_t http_header_t::Content_Location = "Content-Location";
+const fast_str_t http_header_t::Content_MD5 = "Content-MD5";
+const fast_str_t http_header_t::Content_Disposition = "Content-Disposition";
+const fast_str_t http_header_t::Content_Encoding = "Content-Encoding";
 const fast_str_t http_header_t::Content_Length = "Content-Length";
+const fast_str_t http_header_t::Content_Range = "Content-Range";
 const fast_str_t http_header_t::Content_Type = "Content-Type";
+
 const fast_str_t http_header_t::Date = "Date";
+const fast_str_t http_header_t::Deflate = "deflate";
+const fast_str_t http_header_t::Filename = "filename";
+const fast_str_t http_header_t::GZIP = "gzip";
 const fast_str_t http_header_t::Host = "Host";
 const fast_str_t http_header_t::HTTP_VERSION_1_1 = "HTTP/1.1";
-const fast_str_t http_header_t::JSON_UTF8 = "application/json; charset=UTF-8";
+const fast_str_t http_header_t::Identify = "identify";
+const fast_str_t http_header_t::Image_GIF = "image/gif";
+const fast_str_t http_header_t::Image_JPEG = "image/jpeg";
+const fast_str_t http_header_t::Image_PNG = "image/png";
 const fast_str_t http_header_t::Keep_Alive = "keep-alive";
+const fast_str_t http_header_t::Last_Modified = "Last-Modified";
+const fast_str_t http_header_t::Location = "Location";
+const fast_str_t http_header_t::Range = "Range";
 const fast_str_t http_header_t::Server = "Server";
-const fast_str_t http_header_t::XML_UTF8 = "application/xml; charset=UTF-8";
+const fast_str_t http_header_t::Text_CSS_UTF8 = "text/css; charset=UTF-8";
+const fast_str_t http_header_t::Text_HTML_UTF8 = "text/html; charset=UTF-8";
+const fast_str_t http_header_t::Text_JavaScript = "text/javascript";
+const fast_str_t http_header_t::Text_Plain_UTF8 = "text/plain; charset=UTF-8";
 
 
 // Single instance.
