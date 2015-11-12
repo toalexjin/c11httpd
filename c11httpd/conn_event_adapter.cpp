@@ -54,11 +54,13 @@ uint32_t conn_event_adapter_t::get_more_data(
 uint32_t conn_event_adapter_t::on_aio_completed(
 	ctx_setter_t& ctx_setter, const config_t& cfg,
 	conn_session_t& session,
+	int running_count,
 	const std::vector<aio_t>& completed,
 	buf_t& send_buf) {
 
 	if (this->m_on_aio_completed) {
-		return this->m_on_aio_completed(ctx_setter, cfg, session, completed, send_buf);
+		return this->m_on_aio_completed(ctx_setter, cfg,
+			session, running_count, completed, send_buf);
 	} else {
 		return 0;
 	}

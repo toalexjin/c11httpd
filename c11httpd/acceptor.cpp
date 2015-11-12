@@ -253,7 +253,8 @@ err_t acceptor_t::run_tcp(conn_event_t* handler) {
 
 					// Invoke callback function to handle completed aio tasks.
 					conn->last_event_result(handler->on_aio_completed(
-						*conn, this->m_config, *conn, aio_completed, conn->send_buf()));
+						*conn, this->m_config, *conn, conn->aio_running_count(),
+						aio_completed, conn->send_buf()));
 
 					if (conn->pending_send_size() > 0) {
 						this->epoll_set_i(running.m_epoll, conn->sock(), conn, EPOLL_CTL_MOD, EPOLLOUT | EPOLLET);

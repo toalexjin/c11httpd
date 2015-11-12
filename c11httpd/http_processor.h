@@ -51,6 +51,7 @@ public:
 	virtual uint32_t on_aio_completed(
 		ctx_setter_t& ctx_setter, const config_t& cfg,
 		conn_session_t& session,
+		int running_count,
 		const std::vector<aio_t>& completed,
 		buf_t& send_buf);
 

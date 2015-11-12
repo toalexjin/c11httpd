@@ -140,6 +140,7 @@ public:
 		c11httpd::ctx_setter_t& ctx_setter,
 		const c11httpd::config_t& cfg,
 		c11httpd::conn_session_t& session,
+		int running_count,
 		const std::vector<c11httpd::aio_t>& completed,
 		c11httpd::buf_t& send_buf);
 };
@@ -217,6 +218,7 @@ uint32_t my_event_handler_t::on_aio_completed(
 	c11httpd::ctx_setter_t& ctx_setter,
 	const c11httpd::config_t& cfg,
 	c11httpd::conn_session_t& session,
+	int running_count,
 	const std::vector<c11httpd::aio_t>& completed,
 	c11httpd::buf_t& send_buf) {
 
@@ -353,6 +355,7 @@ int main(int argc, char* argv[]) {
 				c11httpd::ctx_setter_t& ctx_setter,
 				const c11httpd::config_t& cfg,
 				c11httpd::conn_session_t& session,
+				int running_count,
 				const std::vector<c11httpd::aio_t>& completed,
 				c11httpd::buf_t& send_buf) -> uint32_t {
 
