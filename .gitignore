@@ -15,4 +15,5 @@ a.out
 .project
 .settings
 .DS_Store
-
+/CMakeLists.txt
+/.idea/
